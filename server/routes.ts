@@ -36,6 +36,7 @@ interface StreamRow {
   end_date: string | null;
   day_of_month: number | null;
   anchor_date: string | null;
+  category: string | null;
 }
 
 interface DecisionRow {
@@ -60,6 +61,7 @@ function rowToStream(row: StreamRow) {
     ...(row.end_date && { endDate: row.end_date }),
     ...(row.day_of_month != null && { dayOfMonth: row.day_of_month }),
     ...(row.anchor_date && { anchorDate: row.anchor_date }),
+    ...(row.category && { category: row.category }),
   };
 }
 
@@ -155,8 +157,8 @@ export function registerRoutes(app: Express): void {
       // Insert all streams
       for (const stream of config.streams || []) {
         await client.query(
-          `INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          `INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             stream.id,
             config.id,
@@ -170,6 +172,7 @@ export function registerRoutes(app: Express): void {
             stream.endDate || null,
             stream.dayOfMonth ?? null,
             stream.anchorDate || null,
+            stream.category || null,
           ]
         );
       }
@@ -249,8 +252,8 @@ export function registerRoutes(app: Express): void {
       // Insert add-streams
       for (const stream of config.addStreams || []) {
         await client.query(
-          `INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          `INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             stream.id,
             config.id,
@@ -264,6 +267,7 @@ export function registerRoutes(app: Express): void {
             stream.endDate || null,
             stream.dayOfMonth ?? null,
             stream.anchorDate || null,
+            stream.category || null,
           ]
         );
       }

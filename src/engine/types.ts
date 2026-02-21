@@ -19,6 +19,9 @@ export type AccountType = 'checking' | 'savings';
 // Whether money is coming in, going out, or moving between accounts
 export type StreamType = 'income' | 'expense' | 'transfer';
 
+// For expenses: fixed (predictable, like mortgage) vs variable (fluctuates, like groceries)
+export type ExpenseCategory = 'fixed' | 'variable';
+
 /**
  * A CashStream represents a recurring or one-time money flow.
  *
@@ -40,6 +43,7 @@ export interface CashStream {
   endDate?: string; // Optional — when it stops (e.g., Tesla payoff in Oct 2026)
   dayOfMonth?: number; // For monthly: which day (1-28). Use 28 for end-of-month.
   anchorDate?: string; // For biweekly/weekly: a known occurrence date to count from
+  category?: ExpenseCategory; // For expenses: 'fixed' or 'variable'. UI grouping only.
 }
 
 /**

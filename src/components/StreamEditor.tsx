@@ -7,10 +7,12 @@
 
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import type { CashStream, Frequency, StreamType, AccountType } from '../engine';
+import type { CashStream, Frequency, StreamType, AccountType, ExpenseCategory } from '../engine';
 
 interface StreamEditorProps {
   stream?: CashStream; // If provided, we're editing. If not, we're adding.
+  defaultType?: StreamType; // Pre-set when opened from a section's "Add" button
+  defaultCategory?: ExpenseCategory; // Pre-set for "Add Fixed Expense" vs "Add Variable Expense"
   onSave: (stream: CashStream) => void;
   onCancel: () => void;
 }
@@ -29,10 +31,11 @@ const TYPE_OPTIONS: { value: StreamType; label: string }[] = [
   { value: 'transfer', label: 'Transfer' },
 ];
 
-export function StreamEditor({ stream, onSave, onCancel }: StreamEditorProps) {
+export function StreamEditor({ stream, defaultType, defaultCategory, onSave, onCancel }: StreamEditorProps) {
+  const initialType = stream?.type ?? defaultType ?? 'expense';
   const [name, setName] = useState(stream?.name ?? '');
   const [amount, setAmount] = useState(stream?.amount ?? 0);
-  const [type, setType] = useState<StreamType>(stream?.type ?? 'expense');
+  const [type, setType] = useState<StreamType>(initialType);
   const [frequency, setFrequency] = useState<Frequency>(stream?.frequency ?? 'monthly');
   const [account, setAccount] = useState<AccountType>(stream?.account ?? 'checking');
   const [targetAccount, setTargetAccount] = useState<AccountType>(stream?.targetAccount ?? 'savings');
@@ -40,10 +43,14 @@ export function StreamEditor({ stream, onSave, onCancel }: StreamEditorProps) {
   const [endDate, setEndDate] = useState(stream?.endDate ?? '');
   const [dayOfMonth, setDayOfMonth] = useState(stream?.dayOfMonth ?? 1);
   const [anchorDate, setAnchorDate] = useState(stream?.anchorDate ?? '');
+  const [category, setCategory] = useState<ExpenseCategory | undefined>(
+    stream?.category ?? defaultCategory ?? (initialType === 'expense' ? 'fixed' : undefined)
+  );
 
   const needsDayOfMonth = frequency === 'monthly';
   const needsAnchorDate = frequency === 'biweekly' || frequency === 'weekly';
   const isTransfer = type === 'transfer';
+  const isExpense = type === 'expense';
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,6 +66,7 @@ export function StreamEditor({ stream, onSave, onCancel }: StreamEditorProps) {
       ...(needsDayOfMonth && { dayOfMonth }),
       ...(needsAnchorDate && anchorDate && { anchorDate }),
       ...(isTransfer && { targetAccount }),
+      ...(isExpense && category && { category }),
     };
     onSave(cashStream);
   }
@@ -94,16 +102,41 @@ export function StreamEditor({ stream, onSave, onCancel }: StreamEditorProps) {
 
         <div className="setup-field">
           <label>Type</label>
-          <select value={type} onChange={(e) => setType(e.target.value as StreamType)}>
+          <select value={type} onChange={(e) => {
+            const newType = e.target.value as StreamType;
+            setType(newType);
+            if (newType === 'expense') {
+              setCategory('fixed');
+            } else {
+              setCategory(undefined);
+            }
+          }}>
             {TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
         </div>
 
+        {isExpense && (
+          <div className="setup-field">
+            <label>Category</label>
+            <select value={category ?? 'fixed'} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
+              <option value="fixed">Fixed</option>
+              <option value="variable">Variable</option>
+            </select>
+            <span className="field-hint">Fixed = predictable amount, Variable = fluctuates</span>
+          </div>
+        )}
+
         <div className="setup-field">
           <label>Frequency</label>
-          <select value={frequency} onChange={(e) => setFrequency(e.target.value as Frequency)}>
+          <select value={frequency} onChange={(e) => {
+            const newFreq = e.target.value as Frequency;
+            setFrequency(newFreq);
+            // Reset conditional fields that no longer apply
+            if (newFreq !== 'monthly') setDayOfMonth(1);
+            if (newFreq !== 'biweekly' && newFreq !== 'weekly') setAnchorDate('');
+          }}>
             {FREQUENCY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}

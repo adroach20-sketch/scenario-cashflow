@@ -99,5 +99,9 @@ export async function initDb(): Promise<void> {
     );
   `);
 
+  // v1.2: Add category column for expense grouping (fixed vs variable)
+  await pool.query(`ALTER TABLE streams ADD COLUMN IF NOT EXISTS category TEXT`);
+  await pool.query(`ALTER TABLE decision_add_streams ADD COLUMN IF NOT EXISTS category TEXT`);
+
   console.log('Database initialized (PostgreSQL)');
 }

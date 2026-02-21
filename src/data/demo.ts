@@ -57,6 +57,7 @@ export function createDemoBaseline(): ScenarioConfig {
         account: 'checking',
         startDate: today(),
         dayOfMonth: 15,
+        category: 'fixed',
       },
       {
         id: uuid(),
@@ -67,6 +68,7 @@ export function createDemoBaseline(): ScenarioConfig {
         account: 'checking',
         startDate: today(),
         dayOfMonth: 8,
+        category: 'fixed',
       },
       {
         id: uuid(),
@@ -77,6 +79,7 @@ export function createDemoBaseline(): ScenarioConfig {
         account: 'checking',
         startDate: today(),
         dayOfMonth: 1,
+        category: 'fixed',
       },
       {
         id: uuid(),
@@ -87,6 +90,7 @@ export function createDemoBaseline(): ScenarioConfig {
         account: 'checking',
         startDate: today(),
         dayOfMonth: 3,
+        category: 'fixed',
       },
       {
         id: uuid(),
@@ -97,6 +101,7 @@ export function createDemoBaseline(): ScenarioConfig {
         account: 'checking',
         startDate: today(),
         anchorDate: today(),
+        category: 'variable',
       },
       {
         id: uuid(),
@@ -128,6 +133,7 @@ export function createDemoDecision(baselineId: string): DecisionConfig {
         account: 'checking',
         startDate: today(),
         dayOfMonth: 1,
+        category: 'fixed',
       },
     ],
     removeStreamIds: [],

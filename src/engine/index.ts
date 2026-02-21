@@ -16,6 +16,7 @@ export type {
   Frequency,
   AccountType,
   StreamType,
+  ExpenseCategory,
   CashStream,
   ScenarioConfig,
   DecisionConfig,

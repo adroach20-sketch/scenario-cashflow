@@ -36,6 +36,7 @@ export function SetupPanel({
               step={100}
             />
           </div>
+          <span className="field-hint">Your current checking account balance</span>
         </div>
         <div className="setup-field">
           <label htmlFor="savings">Savings Account</label>
@@ -49,6 +50,7 @@ export function SetupPanel({
               step={100}
             />
           </div>
+          <span className="field-hint">Your current savings account balance</span>
         </div>
         <div className="setup-field">
           <label htmlFor="buffer">Safety Buffer</label>
@@ -62,7 +64,7 @@ export function SetupPanel({
               step={500}
             />
           </div>
-          <span className="field-hint">Minimum comfortable checking balance</span>
+          <span className="field-hint">Minimum checking balance you're comfortable with. Days below this get flagged in the forecast.</span>
         </div>
       </div>
 
