@@ -12,5 +12,6 @@ export interface ScenarioStore {
   saveBaseline(config: ScenarioConfig): Promise<void>;
   getDecision(): Promise<DecisionConfig | null>;
   saveDecision(config: DecisionConfig): Promise<void>;
+  deleteDecision(): Promise<void>;
   clear(): Promise<void>;
 }

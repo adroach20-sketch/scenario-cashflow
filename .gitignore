@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dist-server
 *.local
 
 # Editor directories and files
@@ -24,6 +25,7 @@ dist-ssr
 *.sw?
 
 # Database (Phase 4)
+data/
 *.db
 *.sqlite
 

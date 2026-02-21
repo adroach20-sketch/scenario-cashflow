@@ -31,6 +31,10 @@ export const localStorageStore: ScenarioStore = {
     localStorage.setItem(DECISION_KEY, JSON.stringify(config));
   },
 
+  async deleteDecision(): Promise<void> {
+    localStorage.removeItem(DECISION_KEY);
+  },
+
   async clear(): Promise<void> {
     localStorage.removeItem(BASELINE_KEY);
     localStorage.removeItem(DECISION_KEY);

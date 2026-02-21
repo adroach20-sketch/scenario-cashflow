@@ -5,7 +5,7 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 
 ## Tech Stack
 - **Frontend:** React 18 + TypeScript, Vite, Recharts, date-fns
-- **Backend (Phase 4):** Express.js + better-sqlite3
+- **Backend:** Express.js 5 + better-sqlite3
 - **Deployment:** Replit (imported from GitHub)
 
 ## Architecture Rules
@@ -13,6 +13,13 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 - The forecasting engine runs in the **browser**, not on the server
 - Server is only for storage (save/load scenarios)
 - All storage goes through the `ScenarioStore` interface in `src/store/types.ts`
+- Express 5 uses `{*splat}` syntax for catch-all routes (not `*`)
+
+## Server Structure
+- `server/index.ts` — Express entry point, serves API + static files in prod
+- `server/db.ts` — SQLite database init, schema creation
+- `server/routes.ts` — API route handlers (GET/PUT baseline, GET/PUT/DELETE decision, DELETE data)
+- Database stored at `data/cashflow.db` (gitignored)
 
 ## Code Style
 - TypeScript strict mode

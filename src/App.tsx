@@ -1,15 +1,15 @@
 /**
  * Main application component.
  *
- * Manages the scenario and decision state, saves to localStorage,
+ * Manages the scenario and decision state, saves to the API server,
  * and renders all the panels. The chart updates in real-time as
  * the user edits their scenario.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ScenarioConfig, DecisionConfig, CashStream } from './engine';
 import { useForecaster } from './hooks/useForecaster';
-import { localStorageStore } from './store/localStorage';
+import { apiStore } from './store/apiClient';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
 import { SetupPanel } from './components/SetupPanel';
 import { StreamList } from './components/StreamList';
@@ -26,11 +26,14 @@ function App() {
   // Run the forecast engine whenever baseline or decision changes
   const { baselineResult, decisionResult, comparison } = useForecaster(baseline, decision);
 
-  // Load from localStorage on mount (or create demo data)
+  // Track whether a save is already in flight to avoid overlapping requests
+  const saveInFlight = useRef(false);
+
+  // Load from server on mount (or create demo data)
   useEffect(() => {
     async function load() {
-      const savedBaseline = await localStorageStore.getBaseline();
-      const savedDecision = await localStorageStore.getDecision();
+      const savedBaseline = await apiStore.getBaseline();
+      const savedDecision = await apiStore.getDecision();
 
       if (savedBaseline) {
         setBaseline(savedBaseline);
@@ -47,22 +50,30 @@ function App() {
     load();
   }, []);
 
-  // Auto-save whenever state changes
+  // Auto-save with debounce (500ms) to avoid hammering the server on every keystroke
   useEffect(() => {
     if (!isLoaded) return;
-    if (baseline) {
-      localStorageStore.saveBaseline(baseline);
-    }
-    if (decision) {
-      localStorageStore.saveDecision(decision);
-    } else {
-      // If decision was cleared, remove it from storage
-      localStorageStore.getDecision().then((saved) => {
-        if (saved) {
-          localStorage.removeItem('scenario-cashflow:decision');
+
+    const timer = setTimeout(async () => {
+      if (saveInFlight.current) return;
+      saveInFlight.current = true;
+      try {
+        if (baseline) {
+          await apiStore.saveBaseline(baseline);
         }
-      });
-    }
+        if (decision) {
+          await apiStore.saveDecision(decision);
+        } else {
+          await apiStore.deleteDecision();
+        }
+      } catch (err) {
+        console.error('Auto-save failed:', err);
+      } finally {
+        saveInFlight.current = false;
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [baseline, decision, isLoaded]);
 
   // Setup panel change handler
@@ -120,7 +131,7 @@ function App() {
 
   // Start fresh (clear demo data)
   const handleStartFresh = useCallback(async () => {
-    await localStorageStore.clear();
+    await apiStore.clear();
     const fresh: ScenarioConfig = {
       id: crypto.randomUUID(),
       name: 'My Baseline',
