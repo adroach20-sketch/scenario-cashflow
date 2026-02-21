@@ -8,7 +8,7 @@
  */
 
 import type { Express, Request, Response, NextFunction } from 'express';
-import { getDb } from './db.js';
+import { getPool } from './db.js';
 
 // ─── camelCase ↔ snake_case helpers ─────────────────────────────
 
@@ -105,179 +105,209 @@ function rowToDecision(
 
 export function registerRoutes(app: Express): void {
   // ── GET /api/baseline ──────────────────────────────────────
-  app.get('/api/baseline', (_req: Request, res: Response) => {
-    const db = getDb();
-    const scenario = db.prepare('SELECT * FROM scenarios LIMIT 1').get() as ScenarioRow | undefined;
+  app.get('/api/baseline', async (_req: Request, res: Response) => {
+    const pool = getPool();
+    const { rows: scenarios } = await pool.query<ScenarioRow>(
+      'SELECT * FROM scenarios LIMIT 1'
+    );
 
-    if (!scenario) {
+    if (scenarios.length === 0) {
       res.status(204).end();
       return;
     }
 
-    const streams = db
-      .prepare('SELECT * FROM streams WHERE scenario_id = ?')
-      .all(scenario.id) as StreamRow[];
+    const scenario = scenarios[0];
+    const { rows: streams } = await pool.query<StreamRow>(
+      'SELECT * FROM streams WHERE scenario_id = $1',
+      [scenario.id]
+    );
 
     res.json(rowToScenario(scenario, streams));
   });
 
   // ── PUT /api/baseline ──────────────────────────────────────
-  app.put('/api/baseline', (req: Request, res: Response) => {
-    const db = getDb();
+  app.put('/api/baseline', async (req: Request, res: Response) => {
+    const pool = getPool();
     const config = req.body;
+    const client = await pool.connect();
 
-    const upsert = db.transaction(() => {
+    try {
+      await client.query('BEGIN');
+
       // Delete existing scenario(s) — CASCADE removes streams
-      db.prepare('DELETE FROM scenarios').run();
+      await client.query('DELETE FROM scenarios');
 
       // Insert the scenario
-      db.prepare(`
-        INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        config.id,
-        config.name,
-        config.startDate,
-        config.endDate,
-        config.checkingBalance,
-        config.savingsBalance,
-        config.safetyBuffer
+      await client.query(
+        `INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          config.id,
+          config.name,
+          config.startDate,
+          config.endDate,
+          config.checkingBalance,
+          config.savingsBalance,
+          config.safetyBuffer,
+        ]
       );
 
       // Insert all streams
-      const insertStream = db.prepare(`
-        INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
       for (const stream of config.streams || []) {
-        insertStream.run(
-          stream.id,
-          config.id,
-          stream.name,
-          stream.amount,
-          stream.type,
-          stream.frequency,
-          stream.account,
-          stream.targetAccount || null,
-          stream.startDate,
-          stream.endDate || null,
-          stream.dayOfMonth ?? null,
-          stream.anchorDate || null
+        await client.query(
+          `INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            stream.id,
+            config.id,
+            stream.name,
+            stream.amount,
+            stream.type,
+            stream.frequency,
+            stream.account,
+            stream.targetAccount || null,
+            stream.startDate,
+            stream.endDate || null,
+            stream.dayOfMonth ?? null,
+            stream.anchorDate || null,
+          ]
         );
       }
-    });
 
-    upsert();
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
     res.json({ ok: true });
   });
 
   // ── GET /api/decision ──────────────────────────────────────
-  app.get('/api/decision', (_req: Request, res: Response) => {
-    const db = getDb();
-    const decision = db.prepare('SELECT * FROM decisions LIMIT 1').get() as DecisionRow | undefined;
+  app.get('/api/decision', async (_req: Request, res: Response) => {
+    const pool = getPool();
+    const { rows: decisions } = await pool.query<DecisionRow>(
+      'SELECT * FROM decisions LIMIT 1'
+    );
 
-    if (!decision) {
+    if (decisions.length === 0) {
       res.status(204).end();
       return;
     }
 
-    const addStreams = db
-      .prepare('SELECT * FROM decision_add_streams WHERE decision_id = ?')
-      .all(decision.id) as StreamRow[];
+    const decision = decisions[0];
 
-    const removeRows = db
-      .prepare('SELECT stream_id FROM decision_remove_streams WHERE decision_id = ?')
-      .all(decision.id) as Array<{ stream_id: string }>;
+    const { rows: addStreams } = await pool.query<StreamRow>(
+      'SELECT * FROM decision_add_streams WHERE decision_id = $1',
+      [decision.id]
+    );
+
+    const { rows: removeRows } = await pool.query<{ stream_id: string }>(
+      'SELECT stream_id FROM decision_remove_streams WHERE decision_id = $1',
+      [decision.id]
+    );
     const removeStreamIds = removeRows.map((r) => r.stream_id);
 
-    const modifyRows = db
-      .prepare('SELECT stream_id, changes_json FROM decision_modify_streams WHERE decision_id = ?')
-      .all(decision.id) as Array<{ stream_id: string; changes_json: string }>;
+    const { rows: modifyRows } = await pool.query<{
+      stream_id: string;
+      changes_json: string;
+    }>(
+      'SELECT stream_id, changes_json FROM decision_modify_streams WHERE decision_id = $1',
+      [decision.id]
+    );
 
     res.json(rowToDecision(decision, addStreams, removeStreamIds, modifyRows));
   });
 
   // ── PUT /api/decision ──────────────────────────────────────
-  app.put('/api/decision', (req: Request, res: Response) => {
-    const db = getDb();
+  app.put('/api/decision', async (req: Request, res: Response) => {
+    const pool = getPool();
     const config = req.body;
+    const client = await pool.connect();
 
-    const upsert = db.transaction(() => {
+    try {
+      await client.query('BEGIN');
+
       // Delete existing decision(s) — CASCADE removes children
-      db.prepare('DELETE FROM decisions').run();
+      await client.query('DELETE FROM decisions');
 
       // Insert the decision
-      db.prepare(`
-        INSERT INTO decisions (id, name, baseline_id, checking_balance_adjustment, savings_balance_adjustment)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(
-        config.id,
-        config.name,
-        config.baselineId,
-        config.checkingBalanceAdjustment ?? 0,
-        config.savingsBalanceAdjustment ?? 0
+      await client.query(
+        `INSERT INTO decisions (id, name, baseline_id, checking_balance_adjustment, savings_balance_adjustment)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          config.id,
+          config.name,
+          config.baselineId,
+          config.checkingBalanceAdjustment ?? 0,
+          config.savingsBalanceAdjustment ?? 0,
+        ]
       );
 
       // Insert add-streams
-      const insertStream = db.prepare(`
-        INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
       for (const stream of config.addStreams || []) {
-        insertStream.run(
-          stream.id,
-          config.id,
-          stream.name,
-          stream.amount,
-          stream.type,
-          stream.frequency,
-          stream.account,
-          stream.targetAccount || null,
-          stream.startDate,
-          stream.endDate || null,
-          stream.dayOfMonth ?? null,
-          stream.anchorDate || null
+        await client.query(
+          `INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          [
+            stream.id,
+            config.id,
+            stream.name,
+            stream.amount,
+            stream.type,
+            stream.frequency,
+            stream.account,
+            stream.targetAccount || null,
+            stream.startDate,
+            stream.endDate || null,
+            stream.dayOfMonth ?? null,
+            stream.anchorDate || null,
+          ]
         );
       }
 
       // Insert remove-stream-ids
-      const insertRemove = db.prepare(`
-        INSERT INTO decision_remove_streams (decision_id, stream_id) VALUES (?, ?)
-      `);
-
       for (const streamId of config.removeStreamIds || []) {
-        insertRemove.run(config.id, streamId);
+        await client.query(
+          'INSERT INTO decision_remove_streams (decision_id, stream_id) VALUES ($1, $2)',
+          [config.id, streamId]
+        );
       }
 
       // Insert modify-streams
-      const insertModify = db.prepare(`
-        INSERT INTO decision_modify_streams (decision_id, stream_id, changes_json) VALUES (?, ?, ?)
-      `);
-
       for (const mod of config.modifyStreams || []) {
-        insertModify.run(config.id, mod.streamId, JSON.stringify(mod.changes));
+        await client.query(
+          'INSERT INTO decision_modify_streams (decision_id, stream_id, changes_json) VALUES ($1, $2, $3)',
+          [config.id, mod.streamId, JSON.stringify(mod.changes)]
+        );
       }
-    });
 
-    upsert();
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
     res.json({ ok: true });
   });
 
   // ── DELETE /api/decision ───────────────────────────────────
-  app.delete('/api/decision', (_req: Request, res: Response) => {
-    const db = getDb();
-    db.prepare('DELETE FROM decisions').run();
+  app.delete('/api/decision', async (_req: Request, res: Response) => {
+    const pool = getPool();
+    await pool.query('DELETE FROM decisions');
     res.json({ ok: true });
   });
 
   // ── DELETE /api/data ───────────────────────────────────────
-  app.delete('/api/data', (_req: Request, res: Response) => {
-    const db = getDb();
+  app.delete('/api/data', async (_req: Request, res: Response) => {
+    const pool = getPool();
     // Delete decisions first (foreign key on baseline_id → scenarios)
-    db.prepare('DELETE FROM decisions').run();
-    db.prepare('DELETE FROM scenarios').run();
+    await pool.query('DELETE FROM decisions');
+    await pool.query('DELETE FROM scenarios');
     res.json({ ok: true });
   });
 

@@ -5,7 +5,7 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 
 ## Tech Stack
 - **Frontend:** React 18 + TypeScript, Vite, Recharts, date-fns
-- **Backend:** Express.js 5 + better-sqlite3
+- **Backend:** Express.js 5 + PostgreSQL (pg)
 - **Deployment:** Replit (imported from GitHub)
 
 ## Architecture Rules
@@ -17,9 +17,9 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 
 ## Server Structure
 - `server/index.ts` — Express entry point, serves API + static files in prod
-- `server/db.ts` — SQLite database init, schema creation
+- `server/db.ts` — PostgreSQL database init, schema creation (connects via DATABASE_URL)
 - `server/routes.ts` — API route handlers (GET/PUT baseline, GET/PUT/DELETE decision, DELETE data)
-- Database stored at `data/cashflow.db` (gitignored)
+- Database: PostgreSQL via `DATABASE_URL` env var (provided by Replit)
 
 ## Code Style
 - TypeScript strict mode

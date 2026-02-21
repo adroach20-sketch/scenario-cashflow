@@ -1,42 +1,31 @@
 /**
  * Database initialization and helpers.
  *
- * Creates the SQLite database and all tables on first run.
- * Uses WAL mode for better read performance.
+ * Connects to PostgreSQL via DATABASE_URL and creates all tables on first run.
  */
 
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import pg from 'pg';
+const { Pool } = pg;
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'cashflow.db');
+let pool: pg.Pool;
 
-let db: Database.Database;
-
-export function getDb(): Database.Database {
-  if (!db) {
+export function getPool(): pg.Pool {
+  if (!pool) {
     throw new Error('Database not initialized. Call initDb() first.');
   }
-  return db;
+  return pool;
 }
 
-export function initDb(): void {
-  // Create the data directory if it doesn't exist
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  db = new Database(DB_PATH);
-
-  // Enable WAL mode for better concurrent read performance
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+export async function initDb(): Promise<void> {
+  pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : undefined,
+  });
 
   // Create all tables (idempotent)
-  db.exec(`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS scenarios (
       id TEXT PRIMARY KEY,
       user_id TEXT,
@@ -46,8 +35,8 @@ export function initDb(): void {
       checking_balance REAL NOT NULL,
       savings_balance REAL NOT NULL,
       safety_buffer REAL NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS streams (
@@ -73,8 +62,8 @@ export function initDb(): void {
       baseline_id TEXT NOT NULL,
       checking_balance_adjustment REAL DEFAULT 0,
       savings_balance_adjustment REAL DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
       FOREIGN KEY (baseline_id) REFERENCES scenarios(id) ON DELETE CASCADE
     );
 
@@ -102,7 +91,7 @@ export function initDb(): void {
     );
 
     CREATE TABLE IF NOT EXISTS decision_modify_streams (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       decision_id TEXT NOT NULL,
       stream_id TEXT NOT NULL,
       changes_json TEXT NOT NULL,
@@ -110,5 +99,5 @@ export function initDb(): void {
     );
   `);
 
-  console.log(`Database initialized at ${DB_PATH}`);
+  console.log('Database initialized (PostgreSQL)');
 }

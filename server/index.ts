@@ -12,9 +12,6 @@ const PORT = process.env.PORT || 3001;
 // Parse JSON request bodies
 app.use(express.json());
 
-// Initialize database (creates tables if they don't exist)
-initDb();
-
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -34,6 +31,12 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Initialize database then start listening
+async function start() {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+start();
