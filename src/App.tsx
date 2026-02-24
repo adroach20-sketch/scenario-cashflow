@@ -13,6 +13,7 @@ import { apiStore } from './store/apiClient';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
 import { AppShell, type Page } from './components/AppShell';
 import { ForecastPage } from './pages/ForecastPage';
+import { WorksheetPage } from './pages/WorksheetPage';
 import './App.css';
 
 function App() {
@@ -214,6 +215,14 @@ function App() {
           onDeleteDecision={handleDeleteDecision}
           onToggleDecision={handleToggleDecision}
           onStartFresh={handleStartFresh}
+        />
+      )}
+      {activePage === 'worksheet' && (
+        <WorksheetPage
+          baseline={baseline}
+          onAddStream={handleAddStream}
+          onUpdateStream={handleUpdateStream}
+          onDeleteStream={handleDeleteStream}
         />
       )}
     </AppShell>
