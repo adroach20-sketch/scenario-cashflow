@@ -27,9 +27,8 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
             Forecast
           </button>
           <button
-            className="nav-link nav-disabled"
-            disabled
-            title="Coming soon"
+            className={`nav-link ${activePage === 'worksheet' ? 'nav-active' : ''}`}
+            onClick={() => onNavigate('worksheet')}
           >
             Worksheet
           </button>
