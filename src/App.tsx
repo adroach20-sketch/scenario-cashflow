@@ -1,9 +1,9 @@
 /**
  * Main application component.
  *
- * Manages the scenario and decision state, saves to the API server,
- * and renders all the panels. The chart updates in real-time as
- * the user edits their scenario.
+ * Manages scenario and decision state, saves to the API server,
+ * and routes between pages. Business logic lives here;
+ * pages handle layout and rendering.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -11,20 +11,23 @@ import type { ScenarioConfig, DecisionConfig, CashStream } from './engine';
 import { useForecaster } from './hooks/useForecaster';
 import { apiStore } from './store/apiClient';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
-import { SetupPanel } from './components/SetupPanel';
-import { StreamList } from './components/StreamList';
-import { DecisionPanel } from './components/DecisionPanel';
-import { ForecastChart } from './components/ForecastChart';
-import { MetricsPanel } from './components/MetricsPanel';
+import { AppShell, type Page } from './components/AppShell';
+import { ForecastPage } from './pages/ForecastPage';
 import './App.css';
 
 function App() {
   const [baseline, setBaseline] = useState<ScenarioConfig | null>(null);
-  const [decision, setDecision] = useState<DecisionConfig | null>(null);
+  const [decisions, setDecisions] = useState<DecisionConfig[]>([]);
+  const [enabledDecisionIds, setEnabledDecisionIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
+  const [activePage, setActivePage] = useState<Page>('forecast');
 
-  // Run the forecast engine whenever baseline or decision changes
-  const { baselineResult, decisionResult, comparison } = useForecaster(baseline, decision);
+  // Run the forecast engine whenever baseline or decisions change
+  const { baselineResult, decisionForecasts } = useForecaster(
+    baseline,
+    decisions,
+    enabledDecisionIds
+  );
 
   // Track whether a save is already in flight to avoid overlapping requests
   const saveInFlight = useRef(false);
@@ -33,24 +36,26 @@ function App() {
   useEffect(() => {
     async function load() {
       const savedBaseline = await apiStore.getBaseline();
-      const savedDecision = await apiStore.getDecision();
+      const savedDecisions = await apiStore.getDecisions();
 
       if (savedBaseline) {
         setBaseline(savedBaseline);
-        setDecision(savedDecision);
+        setDecisions(savedDecisions);
+        setEnabledDecisionIds(new Set(savedDecisions.map((d) => d.id)));
       } else {
         // First visit: load demo data
         const demo = createDemoBaseline();
         const demoDecision = createDemoDecision(demo.id);
         setBaseline(demo);
-        setDecision(demoDecision);
+        setDecisions([demoDecision]);
+        setEnabledDecisionIds(new Set([demoDecision.id]));
       }
       setIsLoaded(true);
     }
     load();
   }, []);
 
-  // Auto-save with debounce (500ms) to avoid hammering the server on every keystroke
+  // Auto-save with debounce (500ms)
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -61,10 +66,8 @@ function App() {
         if (baseline) {
           await apiStore.saveBaseline(baseline);
         }
-        if (decision) {
+        for (const decision of decisions) {
           await apiStore.saveDecision(decision);
-        } else {
-          await apiStore.deleteDecision();
         }
       } catch (err) {
         console.error('Auto-save failed:', err);
@@ -74,7 +77,7 @@ function App() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [baseline, decision, isLoaded]);
+  }, [baseline, decisions, isLoaded]);
 
   // Setup panel change handler
   const handleSetupChange = useCallback(
@@ -108,25 +111,62 @@ function App() {
         ? { ...prev, streams: prev.streams.filter((s) => s.id !== streamId) }
         : prev
     );
-    // Also clean up any decision references to this stream
-    setDecision((prev) =>
-      prev
-        ? {
-            ...prev,
-            removeStreamIds: prev.removeStreamIds.filter((id) => id !== streamId),
-            modifyStreams: prev.modifyStreams.filter((m) => m.streamId !== streamId),
-          }
-        : prev
+    // Clean up references across all decisions
+    setDecisions((prev) =>
+      prev.map((d) => ({
+        ...d,
+        removeStreamIds: d.removeStreamIds.filter((id) => id !== streamId),
+        modifyStreams: d.modifyStreams.filter((m) => m.streamId !== streamId),
+      }))
     );
   }, []);
 
   // Decision handlers
+  const handleAddDecision = useCallback(() => {
+    if (!baseline) return;
+    const newDecision: DecisionConfig = {
+      id: crypto.randomUUID(),
+      name: 'New Decision',
+      baselineId: baseline.id,
+      addStreams: [],
+      removeStreamIds: [],
+      modifyStreams: [],
+      checkingBalanceAdjustment: 0,
+      savingsBalanceAdjustment: 0,
+    };
+    setDecisions((prev) => [...prev, newDecision]);
+    setEnabledDecisionIds((prev) => new Set([...prev, newDecision.id]));
+  }, [baseline]);
+
   const handleUpdateDecision = useCallback((updated: DecisionConfig) => {
-    setDecision(updated);
+    setDecisions((prev) =>
+      prev.map((d) => (d.id === updated.id ? updated : d))
+    );
   }, []);
 
-  const handleClearDecision = useCallback(() => {
-    setDecision(null);
+  const handleDeleteDecision = useCallback((id: string) => {
+    setDecisions((prev) => prev.filter((d) => d.id !== id));
+    setEnabledDecisionIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    // Fire-and-forget server delete
+    apiStore.deleteDecision(id).catch((err) => {
+      console.error('Failed to delete decision:', err);
+    });
+  }, []);
+
+  const handleToggleDecision = useCallback((id: string) => {
+    setEnabledDecisionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   }, []);
 
   // Start fresh (clear demo data)
@@ -145,7 +185,8 @@ function App() {
       streams: [],
     };
     setBaseline(fresh);
-    setDecision(null);
+    setDecisions([]);
+    setEnabledDecisionIds(new Set());
   }, []);
 
   if (!isLoaded || !baseline) {
@@ -155,81 +196,27 @@ function App() {
   const isDemo = baseline.name === 'Demo Baseline';
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div>
-          <h1>Scenario Cashflow Forecaster</h1>
-          <p className="subtitle">See how decisions change your financial future</p>
-        </div>
-        {isDemo && (
-          <button className="primary" onClick={handleStartFresh}>
-            Use My Numbers
-          </button>
-        )}
-        {!isDemo && (
-          <button onClick={handleStartFresh}>
-            Start Over
-          </button>
-        )}
-      </header>
-
-      {isDemo && (
-        <div className="demo-banner">
-          This is demo data. Click "Use My Numbers" to enter your own scenario.
-        </div>
-      )}
-
-      {/* Chart — the centerpiece */}
-      <section className="section">
-        <ForecastChart
+    <AppShell activePage={activePage} onNavigate={setActivePage}>
+      {activePage === 'forecast' && (
+        <ForecastPage
+          baseline={baseline}
+          decisions={decisions}
+          enabledDecisionIds={enabledDecisionIds}
           baselineResult={baselineResult}
-          decisionResult={decisionResult}
-          safetyBuffer={baseline.safetyBuffer}
+          decisionForecasts={decisionForecasts}
+          isDemo={isDemo}
+          onSetupChange={handleSetupChange}
+          onAddStream={handleAddStream}
+          onUpdateStream={handleUpdateStream}
+          onDeleteStream={handleDeleteStream}
+          onAddDecision={handleAddDecision}
+          onUpdateDecision={handleUpdateDecision}
+          onDeleteDecision={handleDeleteDecision}
+          onToggleDecision={handleToggleDecision}
+          onStartFresh={handleStartFresh}
         />
-      </section>
-
-      {/* Metrics */}
-      <section className="section">
-        <MetricsPanel
-          baselineMetrics={baselineResult?.metrics ?? null}
-          comparison={comparison}
-        />
-      </section>
-
-      {/* Setup */}
-      <section className="section">
-        <SetupPanel
-          checkingBalance={baseline.checkingBalance}
-          savingsBalance={baseline.savingsBalance}
-          safetyBuffer={baseline.safetyBuffer}
-          startDate={baseline.startDate}
-          endDate={baseline.endDate}
-          onChange={handleSetupChange}
-        />
-      </section>
-
-      {/* Baseline streams */}
-      <section className="section">
-        <StreamList
-          streams={baseline.streams}
-          onAdd={handleAddStream}
-          onUpdate={handleUpdateStream}
-          onDelete={handleDeleteStream}
-        />
-      </section>
-
-      {/* Decision */}
-      <section className="section">
-        <h2>Decision Scenario</h2>
-        <DecisionPanel
-          decision={decision}
-          baselineStreams={baseline.streams}
-          onUpdate={handleUpdateDecision}
-          onClear={handleClearDecision}
-          baselineId={baseline.id}
-        />
-      </section>
-    </div>
+      )}
+    </AppShell>
   );
 }
 

@@ -27,15 +27,15 @@ export const apiStore: ScenarioStore = {
     if (!res.ok) throw new Error(`Failed to save baseline: ${res.statusText}`);
   },
 
-  async getDecision(): Promise<DecisionConfig | null> {
-    const res = await fetch(`${API_BASE}/decision`);
-    if (res.status === 204) return null;
-    if (!res.ok) throw new Error(`Failed to load decision: ${res.statusText}`);
+  async getDecisions(): Promise<DecisionConfig[]> {
+    const res = await fetch(`${API_BASE}/decisions`);
+    if (res.status === 204) return [];
+    if (!res.ok) throw new Error(`Failed to load decisions: ${res.statusText}`);
     return res.json();
   },
 
   async saveDecision(config: DecisionConfig): Promise<void> {
-    const res = await fetch(`${API_BASE}/decision`, {
+    const res = await fetch(`${API_BASE}/decisions/${config.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -43,8 +43,8 @@ export const apiStore: ScenarioStore = {
     if (!res.ok) throw new Error(`Failed to save decision: ${res.statusText}`);
   },
 
-  async deleteDecision(): Promise<void> {
-    const res = await fetch(`${API_BASE}/decision`, { method: 'DELETE' });
+  async deleteDecision(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/decisions/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Failed to delete decision: ${res.statusText}`);
   },
 

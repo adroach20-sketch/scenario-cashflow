@@ -1,9 +1,9 @@
 /**
- * The main chart: daily checking balance for baseline vs decision.
+ * The main chart: daily checking balance for baseline vs N decisions.
  *
- * Uses Recharts to render two overlaid lines with a safety buffer line.
- * This is the visual centerpiece of the app — the thing that makes
- * fragility obvious at a glance.
+ * Uses Recharts to render overlaid lines with a safety buffer line.
+ * Each decision gets a distinct color from the palette. The baseline
+ * is always blue; decisions cycle through green, amber, purple, etc.
  */
 
 import {
@@ -19,26 +19,31 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import type { ForecastResult } from '../engine';
+import type { DecisionForecast } from '../hooks/useForecaster';
+
+// Color palette for decision lines (checking solid, savings light/dashed)
+export const DECISION_COLORS = [
+  { main: '#16a34a', light: '#86efac' },  // green
+  { main: '#d97706', light: '#fcd34d' },  // amber
+  { main: '#9333ea', light: '#c4b5fd' },  // purple
+  { main: '#dc2626', light: '#fca5a5' },  // red
+  { main: '#0891b2', light: '#67e8f9' },  // cyan
+  { main: '#be185d', light: '#f9a8d4' },  // pink
+];
 
 interface ForecastChartProps {
   baselineResult: ForecastResult | null;
-  decisionResult: ForecastResult | null;
+  decisionForecasts: DecisionForecast[];
   safetyBuffer: number;
-}
-
-interface ChartDataPoint {
-  date: string;
-  label: string;
-  baselineChecking?: number;
-  baselineSavings?: number;
-  decisionChecking?: number;
-  decisionSavings?: number;
+  /** Full decisions array (all, not just enabled) — used for stable color assignment */
+  allDecisionIds: string[];
 }
 
 export function ForecastChart({
   baselineResult,
-  decisionResult,
+  decisionForecasts,
   safetyBuffer,
+  allDecisionIds,
 }: ForecastChartProps) {
   if (!baselineResult) {
     return (
@@ -48,22 +53,30 @@ export function ForecastChart({
     );
   }
 
-  // Merge baseline and decision data into a single array for Recharts
-  const data: ChartDataPoint[] = baselineResult.daily.map((day, i) => {
-    const point: ChartDataPoint = {
+  // Build chart data with dynamic keys per decision
+  const data = baselineResult.daily.map((day, i) => {
+    const point: Record<string, any> = {
       date: day.date,
       label: format(parseISO(day.date), 'MMM d'),
       baselineChecking: day.checking,
       baselineSavings: day.savings,
     };
-    if (decisionResult && decisionResult.daily[i]) {
-      point.decisionChecking = decisionResult.daily[i].checking;
-      point.decisionSavings = decisionResult.daily[i].savings;
+    for (const df of decisionForecasts) {
+      const snapshot = df.result.daily[i];
+      if (snapshot) {
+        point[`checking_${df.decision.id}`] = snapshot.checking;
+        point[`savings_${df.decision.id}`] = snapshot.savings;
+      }
     }
     return point;
   });
 
-  // Sample data points for the X axis (show ~12 labels, not 365)
+  // Stable color index: based on position in the full decisions array
+  function colorFor(decisionId: string) {
+    const idx = allDecisionIds.indexOf(decisionId);
+    return DECISION_COLORS[(idx >= 0 ? idx : 0) % DECISION_COLORS.length];
+  }
+
   const tickInterval = Math.max(1, Math.floor(data.length / 12));
 
   return (
@@ -96,7 +109,7 @@ export function ForecastChart({
             }}
           />
 
-          {/* Zero line if balances might go negative */}
+          {/* Zero line */}
           <ReferenceLine y={0} stroke="#374151" strokeWidth={1} />
 
           {/* Baseline checking */}
@@ -109,19 +122,20 @@ export function ForecastChart({
             name="Baseline"
           />
 
-          {/* Decision checking */}
-          {decisionResult && (
+          {/* Decision checking lines */}
+          {decisionForecasts.map((df) => (
             <Line
+              key={`checking_${df.decision.id}`}
               type="monotone"
-              dataKey="decisionChecking"
-              stroke="#16a34a"
+              dataKey={`checking_${df.decision.id}`}
+              stroke={colorFor(df.decision.id).main}
               strokeWidth={2}
               dot={false}
-              name="Decision"
+              name={df.decision.name}
             />
-          )}
+          ))}
 
-          {/* Savings lines (lighter, secondary) */}
+          {/* Baseline savings (lighter, dashed) */}
           <Line
             type="monotone"
             dataKey="baselineSavings"
@@ -132,17 +146,19 @@ export function ForecastChart({
             name="Baseline Savings"
           />
 
-          {decisionResult && (
+          {/* Decision savings lines */}
+          {decisionForecasts.map((df) => (
             <Line
+              key={`savings_${df.decision.id}`}
               type="monotone"
-              dataKey="decisionSavings"
-              stroke="#86efac"
+              dataKey={`savings_${df.decision.id}`}
+              stroke={colorFor(df.decision.id).light}
               strokeWidth={1}
               strokeDasharray="4 4"
               dot={false}
-              name="Decision Savings"
+              name={`${df.decision.name} Savings`}
             />
-          )}
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>

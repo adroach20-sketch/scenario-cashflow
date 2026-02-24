@@ -1,9 +1,9 @@
 /**
  * React hook that runs the forecasting engine and memoizes results.
  *
- * Recalculates automatically when the baseline or decision changes.
- * The engine runs in the browser — fast enough to update in real-time
- * as the user edits their scenario.
+ * Computes baseline forecast once, then runs each enabled decision
+ * through the engine and compares against baseline. Results update
+ * in real-time as the user edits their scenario.
  */
 
 import { useMemo } from 'react';
@@ -17,31 +17,39 @@ import {
   type ComparisonMetrics,
 } from '../engine';
 
-interface ForecasterOutput {
+export interface DecisionForecast {
+  decision: DecisionConfig;
+  result: ForecastResult;
+  comparison: ComparisonMetrics;
+}
+
+export interface ForecasterOutput {
   baselineResult: ForecastResult | null;
-  decisionResult: ForecastResult | null;
-  comparison: ComparisonMetrics | null;
+  decisionForecasts: DecisionForecast[];
 }
 
 export function useForecaster(
   baseline: ScenarioConfig | null,
-  decision: DecisionConfig | null
+  decisions: DecisionConfig[],
+  enabledDecisionIds: Set<string>
 ): ForecasterOutput {
   const baselineResult = useMemo(() => {
     if (!baseline || baseline.streams.length === 0) return null;
     return forecast(baseline);
   }, [baseline]);
 
-  const decisionResult = useMemo(() => {
-    if (!baseline || !decision) return null;
-    const decisionConfig = applyDecision(baseline, decision);
-    return forecast(decisionConfig);
-  }, [baseline, decision]);
+  const decisionForecasts = useMemo(() => {
+    if (!baseline || !baselineResult) return [];
 
-  const comparison = useMemo(() => {
-    if (!baselineResult || !decisionResult) return null;
-    return compareScenarios(baselineResult.metrics, decisionResult.metrics);
-  }, [baselineResult, decisionResult]);
+    return decisions
+      .filter((d) => enabledDecisionIds.has(d.id))
+      .map((decision) => {
+        const decisionConfig = applyDecision(baseline, decision);
+        const result = forecast(decisionConfig);
+        const comparison = compareScenarios(baselineResult.metrics, result.metrics);
+        return { decision, result, comparison };
+      });
+  }, [baseline, baselineResult, decisions, enabledDecisionIds]);
 
-  return { baselineResult, decisionResult, comparison };
+  return { baselineResult, decisionForecasts };
 }

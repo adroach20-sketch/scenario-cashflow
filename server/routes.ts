@@ -1,13 +1,16 @@
 /**
  * API route handlers.
  *
- * Simple endpoints matching the ScenarioStore interface:
- * - GET/PUT /api/baseline  — single baseline scenario with embedded streams
- * - GET/PUT/DELETE /api/decision — single decision with child records
- * - DELETE /api/data — clear everything
+ * Endpoints:
+ * - GET/PUT /api/baseline     — single baseline scenario with embedded streams
+ * - GET /api/decisions         — all decisions with child records
+ * - PUT /api/decisions/:id     — upsert a single decision by ID
+ * - DELETE /api/decisions/:id  — delete a single decision by ID
+ * - DELETE /api/data           — clear everything
  */
 
 import type { Express, Request, Response, NextFunction } from 'express';
+import type { PoolClient } from 'pg';
 import { getPool } from './db.js';
 
 // ─── camelCase ↔ snake_case helpers ─────────────────────────────
@@ -103,6 +106,77 @@ function rowToDecision(
   };
 }
 
+// ─── Shared helper: load child records for a decision ───────────
+
+async function loadDecisionChildren(pool: ReturnType<typeof getPool>, decisionId: string) {
+  const { rows: addStreams } = await pool.query<StreamRow>(
+    'SELECT * FROM decision_add_streams WHERE decision_id = $1',
+    [decisionId]
+  );
+
+  const { rows: removeRows } = await pool.query<{ stream_id: string }>(
+    'SELECT stream_id FROM decision_remove_streams WHERE decision_id = $1',
+    [decisionId]
+  );
+
+  const { rows: modifyRows } = await pool.query<{
+    stream_id: string;
+    changes_json: string;
+  }>(
+    'SELECT stream_id, changes_json FROM decision_modify_streams WHERE decision_id = $1',
+    [decisionId]
+  );
+
+  return {
+    addStreams,
+    removeStreamIds: removeRows.map((r) => r.stream_id),
+    modifyRows,
+  };
+}
+
+// ─── Shared helper: insert decision child records ───────────────
+
+async function insertDecisionChildren(
+  client: PoolClient,
+  config: { id: string; addStreams?: any[]; removeStreamIds?: string[]; modifyStreams?: any[] }
+) {
+  for (const stream of config.addStreams || []) {
+    await client.query(
+      `INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        stream.id,
+        config.id,
+        stream.name,
+        stream.amount,
+        stream.type,
+        stream.frequency,
+        stream.account,
+        stream.targetAccount || null,
+        stream.startDate,
+        stream.endDate || null,
+        stream.dayOfMonth ?? null,
+        stream.anchorDate || null,
+        stream.category || null,
+      ]
+    );
+  }
+
+  for (const streamId of config.removeStreamIds || []) {
+    await client.query(
+      'INSERT INTO decision_remove_streams (decision_id, stream_id) VALUES ($1, $2)',
+      [config.id, streamId]
+    );
+  }
+
+  for (const mod of config.modifyStreams || []) {
+    await client.query(
+      'INSERT INTO decision_modify_streams (decision_id, stream_id, changes_json) VALUES ($1, $2, $3)',
+      [config.id, mod.streamId, JSON.stringify(mod.changes)]
+    );
+  }
+}
+
 // ─── Route registration ─────────────────────────────────────────
 
 export function registerRoutes(app: Express): void {
@@ -188,53 +262,41 @@ export function registerRoutes(app: Express): void {
     res.json({ ok: true });
   });
 
-  // ── GET /api/decision ──────────────────────────────────────
-  app.get('/api/decision', async (_req: Request, res: Response) => {
+  // ── GET /api/decisions ─────────────────────────────────────
+  app.get('/api/decisions', async (_req: Request, res: Response) => {
     const pool = getPool();
     const { rows: decisions } = await pool.query<DecisionRow>(
-      'SELECT * FROM decisions LIMIT 1'
+      'SELECT * FROM decisions ORDER BY created_at'
     );
 
     if (decisions.length === 0) {
-      res.status(204).end();
+      res.json([]);
       return;
     }
 
-    const decision = decisions[0];
+    const result = [];
+    for (const decision of decisions) {
+      const children = await loadDecisionChildren(pool, decision.id);
+      result.push(
+        rowToDecision(decision, children.addStreams, children.removeStreamIds, children.modifyRows)
+      );
+    }
 
-    const { rows: addStreams } = await pool.query<StreamRow>(
-      'SELECT * FROM decision_add_streams WHERE decision_id = $1',
-      [decision.id]
-    );
-
-    const { rows: removeRows } = await pool.query<{ stream_id: string }>(
-      'SELECT stream_id FROM decision_remove_streams WHERE decision_id = $1',
-      [decision.id]
-    );
-    const removeStreamIds = removeRows.map((r) => r.stream_id);
-
-    const { rows: modifyRows } = await pool.query<{
-      stream_id: string;
-      changes_json: string;
-    }>(
-      'SELECT stream_id, changes_json FROM decision_modify_streams WHERE decision_id = $1',
-      [decision.id]
-    );
-
-    res.json(rowToDecision(decision, addStreams, removeStreamIds, modifyRows));
+    res.json(result);
   });
 
-  // ── PUT /api/decision ──────────────────────────────────────
-  app.put('/api/decision', async (req: Request, res: Response) => {
+  // ── PUT /api/decisions/:id ─────────────────────────────────
+  app.put('/api/decisions/:id', async (req: Request, res: Response) => {
     const pool = getPool();
     const config = req.body;
+    const decisionId = req.params.id;
     const client = await pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Delete existing decision(s) — CASCADE removes children
-      await client.query('DELETE FROM decisions');
+      // Delete existing decision with this ID (CASCADE removes children)
+      await client.query('DELETE FROM decisions WHERE id = $1', [decisionId]);
 
       // Insert the decision
       await client.query(
@@ -249,44 +311,8 @@ export function registerRoutes(app: Express): void {
         ]
       );
 
-      // Insert add-streams
-      for (const stream of config.addStreams || []) {
-        await client.query(
-          `INSERT INTO decision_add_streams (id, decision_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            stream.id,
-            config.id,
-            stream.name,
-            stream.amount,
-            stream.type,
-            stream.frequency,
-            stream.account,
-            stream.targetAccount || null,
-            stream.startDate,
-            stream.endDate || null,
-            stream.dayOfMonth ?? null,
-            stream.anchorDate || null,
-            stream.category || null,
-          ]
-        );
-      }
-
-      // Insert remove-stream-ids
-      for (const streamId of config.removeStreamIds || []) {
-        await client.query(
-          'INSERT INTO decision_remove_streams (decision_id, stream_id) VALUES ($1, $2)',
-          [config.id, streamId]
-        );
-      }
-
-      // Insert modify-streams
-      for (const mod of config.modifyStreams || []) {
-        await client.query(
-          'INSERT INTO decision_modify_streams (decision_id, stream_id, changes_json) VALUES ($1, $2, $3)',
-          [config.id, mod.streamId, JSON.stringify(mod.changes)]
-        );
-      }
+      // Insert child records
+      await insertDecisionChildren(client, config);
 
       await client.query('COMMIT');
     } catch (err) {
@@ -299,10 +325,10 @@ export function registerRoutes(app: Express): void {
     res.json({ ok: true });
   });
 
-  // ── DELETE /api/decision ───────────────────────────────────
-  app.delete('/api/decision', async (_req: Request, res: Response) => {
+  // ── DELETE /api/decisions/:id ──────────────────────────────
+  app.delete('/api/decisions/:id', async (req: Request, res: Response) => {
     const pool = getPool();
-    await pool.query('DELETE FROM decisions');
+    await pool.query('DELETE FROM decisions WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   });
 

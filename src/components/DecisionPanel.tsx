@@ -1,23 +1,25 @@
 /**
- * Decision panel: define modifications to the baseline scenario.
+ * Decision editor: define modifications to the baseline scenario.
  *
  * The user can:
  * - Name the decision (e.g., "Home Addition")
  * - Add new expense/income streams
  * - Remove baseline streams (e.g., drop daycare)
  * - Adjust starting balances (e.g., -$10k upfront cost)
+ *
+ * Always receives a non-null DecisionConfig. The empty/create state
+ * is handled by DecisionList.
  */
 
 import { useState } from 'react';
-import { v4 as uuid } from 'uuid';
 import type { CashStream, DecisionConfig } from '../engine';
 import { StreamEditor } from './StreamEditor';
 
 interface DecisionPanelProps {
-  decision: DecisionConfig | null;
+  decision: DecisionConfig;
   baselineStreams: CashStream[];
   onUpdate: (decision: DecisionConfig) => void;
-  onClear: () => void;
+  onDelete: () => void;
   baselineId: string;
 }
 
@@ -33,72 +35,45 @@ export function DecisionPanel({
   decision,
   baselineStreams,
   onUpdate,
-  onClear,
-  baselineId,
+  onDelete,
 }: DecisionPanelProps) {
   const [isAddingStream, setIsAddingStream] = useState(false);
-
-  // If no decision exists yet, show the "What if?" prompt
-  if (!decision) {
-    return (
-      <div className="decision-panel">
-        <button
-          className="primary what-if-button"
-          onClick={() =>
-            onUpdate({
-              id: uuid(),
-              name: 'New Decision',
-              baselineId,
-              addStreams: [],
-              removeStreamIds: [],
-              modifyStreams: [],
-            })
-          }
-        >
-          What if...?
-        </button>
-        <p className="decision-hint">
-          Create a decision scenario to see how a change affects your forecast
-        </p>
-      </div>
-    );
-  }
 
   const removedSet = new Set(decision.removeStreamIds);
 
   function handleNameChange(name: string) {
-    onUpdate({ ...decision!, name });
+    onUpdate({ ...decision, name });
   }
 
   function handleAddStream(stream: CashStream) {
     onUpdate({
-      ...decision!,
-      addStreams: [...decision!.addStreams, stream],
+      ...decision,
+      addStreams: [...decision.addStreams, stream],
     });
     setIsAddingStream(false);
   }
 
   function handleRemoveAddedStream(streamId: string) {
     onUpdate({
-      ...decision!,
-      addStreams: decision!.addStreams.filter((s) => s.id !== streamId),
+      ...decision,
+      addStreams: decision.addStreams.filter((s) => s.id !== streamId),
     });
   }
 
   function handleToggleBaselineStream(streamId: string) {
     const isCurrentlyRemoved = removedSet.has(streamId);
     const newRemoved = isCurrentlyRemoved
-      ? decision!.removeStreamIds.filter((id) => id !== streamId)
-      : [...decision!.removeStreamIds, streamId];
-    onUpdate({ ...decision!, removeStreamIds: newRemoved });
+      ? decision.removeStreamIds.filter((id) => id !== streamId)
+      : [...decision.removeStreamIds, streamId];
+    onUpdate({ ...decision, removeStreamIds: newRemoved });
   }
 
   function handleBalanceAdjustment(field: string, value: number) {
-    onUpdate({ ...decision!, [field]: value || 0 });
+    onUpdate({ ...decision, [field]: value || 0 });
   }
 
   return (
-    <div className="decision-panel decision-panel-active">
+    <div className="decision-panel-active">
       <div className="decision-header">
         <div className="setup-field" style={{ flex: 1 }}>
           <label>Decision Name</label>
@@ -109,8 +84,8 @@ export function DecisionPanel({
             placeholder="e.g., Home Addition"
           />
         </div>
-        <button className="danger" onClick={onClear}>
-          Remove Decision
+        <button className="danger" onClick={onDelete}>
+          Delete
         </button>
       </div>
 

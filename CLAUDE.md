@@ -1,7 +1,13 @@
 # Scenario Cashflow Forecaster
 
 ## Project Overview
-A full-stack daily cashflow forecaster that compares a baseline scenario against a decision scenario, showing how financial fragility changes over time.
+A full-stack daily cashflow forecaster that compares a baseline scenario against decision scenarios, showing how financial fragility changes over time.
+
+## Status & Roadmap
+See `ROADMAP.md` for current version, planned phases, and decision log.
+- **Current:** v1.3 (multi-scenario support + navigation shell)
+- **Next:** balance tracking worksheet (Phase 2)
+- **Future:** transaction importing (Phase 3)
 
 ## Tech Stack
 - **Frontend:** React 18 + TypeScript, Vite, Recharts, date-fns
@@ -18,7 +24,7 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 ## Server Structure
 - `server/index.ts` — Express entry point, serves API + static files in prod
 - `server/db.ts` — PostgreSQL database init, schema creation (connects via DATABASE_URL)
-- `server/routes.ts` — API route handlers (GET/PUT baseline, GET/PUT/DELETE decision, DELETE data)
+- `server/routes.ts` — API route handlers (GET/PUT baseline, GET/PUT/DELETE decisions/:id, DELETE data)
 - Database: PostgreSQL via `DATABASE_URL` env var (provided by Replit)
 
 ## Code Style
