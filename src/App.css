@@ -836,6 +836,65 @@ button.danger:disabled:hover {
   outline: none;
 }
 
+.ws-quick-add-row {
+  background: #f9fafb;
+  border-top: 2px dashed #e5e7eb;
+}
+
+.ws-quick-input {
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  background: #fff;
+  outline: none;
+}
+
+.ws-quick-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.ws-quick-amount {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.ws-quick-dollar {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin-right: 0.25rem;
+}
+
+.ws-quick-input-amount {
+  width: 80px;
+}
+
+.ws-quick-select {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  background: #fff;
+  outline: none;
+}
+
+.ws-quick-select:focus {
+  border-color: #2563eb;
+}
+
+.ws-quick-add-btn {
+  font-size: 0.75rem;
+  padding: 0.375em 1em;
+}
+
+.ws-quick-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ===== Responsive ===== */
 
 @media (max-width: 768px) {

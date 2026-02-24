@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import type { ScenarioConfig, CashStream, StreamType, ExpenseCategory } from '../engine';
+import { v4 as uuid } from 'uuid';
+import { format } from 'date-fns';
+import type { ScenarioConfig, CashStream, StreamType, ExpenseCategory, Frequency } from '../engine';
 import { StreamEditor } from '../components/StreamEditor';
 
 interface WorksheetPageProps {
@@ -17,6 +19,14 @@ const FREQUENCY_LABELS: Record<string, string> = {
   monthly: 'Monthly',
   'one-time': 'One-time',
 };
+
+const FREQUENCY_OPTIONS: { value: Frequency; label: string }[] = [
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'biweekly', label: 'Biweekly' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'semimonthly', label: '1st & 15th' },
+  { value: 'one-time', label: 'One-time' },
+];
 
 const ACCOUNT_LABELS: Record<string, string> = {
   checking: 'Checking',
@@ -37,9 +47,12 @@ function formatCurrency(value: number): string {
   return '$' + Math.round(value).toLocaleString();
 }
 
+function todayISO(): string {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
 export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddStream, onSetupChange }: WorksheetPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [addingSection, setAddingSection] = useState<string | null>(null);
 
   const { incomeStreams, fixedExpenses, variableExpenses, transferStreams } = useMemo(() => {
     const streams = baseline.streams;
@@ -60,11 +73,6 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
     const netCashflow = totalIncome - totalExpenses - totalTransfers;
     return { totalIncome, totalFixed, totalVariable, totalTransfers, totalExpenses, netCashflow };
   }, [incomeStreams, fixedExpenses, variableExpenses, transferStreams]);
-
-  function handleSaveNew(stream: CashStream) {
-    onAddStream(stream);
-    setAddingSection(null);
-  }
 
   function handleSaveEdit(stream: CashStream) {
     onUpdateStream(stream);
@@ -102,24 +110,9 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
       </div>
 
       <div className="worksheet-balances">
-        <EditableBalance
-          label="Starting Checking"
-          value={baseline.checkingBalance}
-          field="checkingBalance"
-          onChange={onSetupChange}
-        />
-        <EditableBalance
-          label="Starting Savings"
-          value={baseline.savingsBalance}
-          field="savingsBalance"
-          onChange={onSetupChange}
-        />
-        <EditableBalance
-          label="Safety Buffer"
-          value={baseline.safetyBuffer}
-          field="safetyBuffer"
-          onChange={onSetupChange}
-        />
+        <EditableBalance label="Starting Checking" value={baseline.checkingBalance} field="checkingBalance" onChange={onSetupChange} />
+        <EditableBalance label="Starting Savings" value={baseline.savingsBalance} field="savingsBalance" onChange={onSetupChange} />
+        <EditableBalance label="Safety Buffer" value={baseline.safetyBuffer} field="safetyBuffer" onChange={onSetupChange} />
         <div className="worksheet-balance-item">
           <span className="worksheet-balance-label">Forecast Period</span>
           <span className="worksheet-balance-value ws-date">{baseline.startDate} to {baseline.endDate}</span>
@@ -132,17 +125,14 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
           streams={incomeStreams}
           subtotal={totals.totalIncome}
           colorClass="ws-income"
-          sectionKey="income"
           defaultType="income"
           editingId={editingId}
-          addingSection={addingSection}
           onEdit={setEditingId}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingId(null)}
           onDelete={onDeleteStream}
-          onStartAdd={setAddingSection}
-          onSaveNew={handleSaveNew}
-          onCancelAdd={() => setAddingSection(null)}
+          onAdd={onAddStream}
+          startDate={baseline.startDate}
         />
       </section>
 
@@ -152,18 +142,15 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
           streams={fixedExpenses}
           subtotal={totals.totalFixed}
           colorClass="ws-expense"
-          sectionKey="fixed"
           defaultType="expense"
           defaultCategory="fixed"
           editingId={editingId}
-          addingSection={addingSection}
           onEdit={setEditingId}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingId(null)}
           onDelete={onDeleteStream}
-          onStartAdd={setAddingSection}
-          onSaveNew={handleSaveNew}
-          onCancelAdd={() => setAddingSection(null)}
+          onAdd={onAddStream}
+          startDate={baseline.startDate}
         />
       </section>
 
@@ -173,18 +160,15 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
           streams={variableExpenses}
           subtotal={totals.totalVariable}
           colorClass="ws-expense"
-          sectionKey="variable"
           defaultType="expense"
           defaultCategory="variable"
           editingId={editingId}
-          addingSection={addingSection}
           onEdit={setEditingId}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingId(null)}
           onDelete={onDeleteStream}
-          onStartAdd={setAddingSection}
-          onSaveNew={handleSaveNew}
-          onCancelAdd={() => setAddingSection(null)}
+          onAdd={onAddStream}
+          startDate={baseline.startDate}
         />
       </section>
 
@@ -194,17 +178,14 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
           streams={transferStreams}
           subtotal={totals.totalTransfers}
           colorClass="ws-transfer"
-          sectionKey="transfer"
           defaultType="transfer"
           editingId={editingId}
-          addingSection={addingSection}
           onEdit={setEditingId}
           onSaveEdit={handleSaveEdit}
           onCancelEdit={() => setEditingId(null)}
           onDelete={onDeleteStream}
-          onStartAdd={setAddingSection}
-          onSaveNew={handleSaveNew}
-          onCancelAdd={() => setAddingSection(null)}
+          onAdd={onAddStream}
+          startDate={baseline.startDate}
         />
       </section>
     </div>
@@ -267,18 +248,15 @@ interface WorksheetTableProps {
   streams: CashStream[];
   subtotal: number;
   colorClass: string;
-  sectionKey: string;
   defaultType: StreamType;
   defaultCategory?: ExpenseCategory;
   editingId: string | null;
-  addingSection: string | null;
   onEdit: (id: string) => void;
   onSaveEdit: (stream: CashStream) => void;
   onCancelEdit: () => void;
   onDelete: (id: string) => void;
-  onStartAdd: (section: string) => void;
-  onSaveNew: (stream: CashStream) => void;
-  onCancelAdd: () => void;
+  onAdd: (stream: CashStream) => void;
+  startDate: string;
 }
 
 function WorksheetTable({
@@ -286,98 +264,156 @@ function WorksheetTable({
   streams,
   subtotal,
   colorClass,
-  sectionKey,
   defaultType,
   defaultCategory,
   editingId,
-  addingSection,
   onEdit,
   onSaveEdit,
   onCancelEdit,
   onDelete,
-  onStartAdd,
-  onSaveNew,
-  onCancelAdd,
+  onAdd,
+  startDate,
 }: WorksheetTableProps) {
+  const [quickName, setQuickName] = useState('');
+  const [quickAmount, setQuickAmount] = useState('');
+  const [quickFrequency, setQuickFrequency] = useState<Frequency>('monthly');
+
+  function handleQuickAdd() {
+    const name = quickName.trim();
+    const amount = parseFloat(quickAmount);
+    if (!name || !amount || amount <= 0) return;
+
+    const today = todayISO();
+    const effectiveStart = startDate || today;
+    const stream: CashStream = {
+      id: uuid(),
+      name,
+      amount,
+      type: defaultType,
+      frequency: quickFrequency,
+      account: 'checking',
+      startDate: effectiveStart,
+      ...(quickFrequency === 'monthly' && { dayOfMonth: 1 }),
+      ...(quickFrequency === 'semimonthly' && { dayOfMonth: 1 }),
+      ...((quickFrequency === 'biweekly' || quickFrequency === 'weekly') && { anchorDate: effectiveStart }),
+      ...(defaultType === 'transfer' && { targetAccount: 'savings' as const }),
+      ...(defaultCategory && { category: defaultCategory }),
+    };
+    onAdd(stream);
+    setQuickName('');
+    setQuickAmount('');
+    setQuickFrequency('monthly');
+  }
+
+  function handleQuickKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleQuickAdd();
+    }
+  }
+
   return (
     <div className="worksheet-table-container">
       <div className="worksheet-table-header">
         <h2>{title}</h2>
-        <div className="worksheet-table-header-right">
-          <span className={`worksheet-table-subtotal ${colorClass}`}>
-            ~{formatCurrency(subtotal)}/mo
-          </span>
-          <button className="stream-group-add" onClick={() => onStartAdd(sectionKey)}>
-            + Add
-          </button>
-        </div>
+        <span className={`worksheet-table-subtotal ${colorClass}`}>
+          ~{formatCurrency(subtotal)}/mo
+        </span>
       </div>
 
-      {addingSection === sectionKey && (
-        <div className="stream-editor-container">
-          <StreamEditor
-            defaultType={defaultType}
-            defaultCategory={defaultCategory}
-            onSave={onSaveNew}
-            onCancel={onCancelAdd}
-          />
-        </div>
-      )}
-
-      {streams.length === 0 && addingSection !== sectionKey ? (
-        <p className="stream-list-empty">No {title.toLowerCase()} streams</p>
-      ) : (
-        <table className="worksheet-table">
-          <thead>
-            <tr>
-              <th className="ws-th">Name</th>
-              <th className="ws-th ws-th-right">Amount</th>
-              <th className="ws-th">Frequency</th>
-              <th className="ws-th">Account</th>
-              <th className="ws-th ws-th-right">Monthly Est.</th>
-              <th className="ws-th">Dates</th>
-              <th className="ws-th ws-th-actions">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {streams.map((stream) =>
-              editingId === stream.id ? (
-                <tr key={stream.id}>
-                  <td colSpan={7} className="ws-td-editor">
-                    <StreamEditor
-                      stream={stream}
-                      onSave={onSaveEdit}
-                      onCancel={onCancelEdit}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                <tr key={stream.id} className="ws-tr">
-                  <td className="ws-td ws-td-name">{stream.name}</td>
-                  <td className="ws-td ws-td-right">{formatCurrency(stream.amount)}</td>
-                  <td className="ws-td">{FREQUENCY_LABELS[stream.frequency]}</td>
-                  <td className="ws-td">
-                    {ACCOUNT_LABELS[stream.account]}
-                    {stream.targetAccount && ` → ${ACCOUNT_LABELS[stream.targetAccount]}`}
-                  </td>
-                  <td className="ws-td ws-td-right">
-                    {stream.frequency === 'one-time' ? '—' : formatCurrency(monthlyEquivalent(stream))}
-                  </td>
-                  <td className="ws-td ws-td-dates">
-                    {stream.startDate}
-                    {stream.endDate && ` → ${stream.endDate}`}
-                    {stream.dayOfMonth && ` (day ${stream.dayOfMonth})`}
-                  </td>
-                  <td className="ws-td ws-td-actions-cell">
-                    <button onClick={() => onEdit(stream.id)}>Edit</button>
-                    <button className="danger" onClick={() => onDelete(stream.id)}>Delete</button>
-                  </td>
-                </tr>
-              )
-            )}
-          </tbody>
-        </table>
-      )}
+      <table className="worksheet-table">
+        <thead>
+          <tr>
+            <th className="ws-th">Name</th>
+            <th className="ws-th ws-th-right">Amount</th>
+            <th className="ws-th">Frequency</th>
+            <th className="ws-th">Account</th>
+            <th className="ws-th ws-th-right">Monthly Est.</th>
+            <th className="ws-th ws-th-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {streams.map((stream) =>
+            editingId === stream.id ? (
+              <tr key={stream.id}>
+                <td colSpan={6} className="ws-td-editor">
+                  <StreamEditor
+                    stream={stream}
+                    onSave={onSaveEdit}
+                    onCancel={onCancelEdit}
+                  />
+                </td>
+              </tr>
+            ) : (
+              <tr key={stream.id} className="ws-tr">
+                <td className="ws-td ws-td-name">{stream.name}</td>
+                <td className="ws-td ws-td-right">{formatCurrency(stream.amount)}</td>
+                <td className="ws-td">{FREQUENCY_LABELS[stream.frequency]}</td>
+                <td className="ws-td">
+                  {ACCOUNT_LABELS[stream.account]}
+                  {stream.targetAccount && ` → ${ACCOUNT_LABELS[stream.targetAccount]}`}
+                </td>
+                <td className="ws-td ws-td-right">
+                  {stream.frequency === 'one-time' ? '—' : formatCurrency(monthlyEquivalent(stream))}
+                </td>
+                <td className="ws-td ws-td-actions-cell">
+                  <button onClick={() => onEdit(stream.id)}>Edit</button>
+                  <button className="danger" onClick={() => onDelete(stream.id)}>Delete</button>
+                </td>
+              </tr>
+            )
+          )}
+          <tr className="ws-quick-add-row">
+            <td className="ws-td">
+              <input
+                type="text"
+                className="ws-quick-input"
+                placeholder={`New ${title.toLowerCase()}...`}
+                value={quickName}
+                onChange={(e) => setQuickName(e.target.value)}
+                onKeyDown={handleQuickKeyDown}
+              />
+            </td>
+            <td className="ws-td ws-td-right">
+              <div className="ws-quick-amount">
+                <span className="ws-quick-dollar">$</span>
+                <input
+                  type="number"
+                  className="ws-quick-input ws-quick-input-amount"
+                  placeholder="0"
+                  value={quickAmount}
+                  onChange={(e) => setQuickAmount(e.target.value)}
+                  onKeyDown={handleQuickKeyDown}
+                  min={0}
+                  step={50}
+                />
+              </div>
+            </td>
+            <td className="ws-td">
+              <select
+                className="ws-quick-select"
+                value={quickFrequency}
+                onChange={(e) => setQuickFrequency(e.target.value as Frequency)}
+              >
+                {FREQUENCY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </td>
+            <td className="ws-td"></td>
+            <td className="ws-td"></td>
+            <td className="ws-td ws-td-actions-cell">
+              <button
+                className="primary ws-quick-add-btn"
+                onClick={handleQuickAdd}
+                disabled={!quickName.trim() || !quickAmount || parseFloat(quickAmount) <= 0}
+              >
+                Add
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   );
 }
