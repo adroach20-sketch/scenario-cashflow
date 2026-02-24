@@ -75,7 +75,7 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
     <div className="app">
       <header className="app-header">
         <div>
-          <h1>Worksheet</h1>
+          <h1>Accounts</h1>
           <p className="subtitle">Your complete financial picture at a glance</p>
         </div>
       </header>

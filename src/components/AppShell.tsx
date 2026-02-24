@@ -30,7 +30,7 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
             className={`nav-link ${activePage === 'worksheet' ? 'nav-active' : ''}`}
             onClick={() => onNavigate('worksheet')}
           >
-            Worksheet
+            Accounts
           </button>
         </div>
       </nav>
