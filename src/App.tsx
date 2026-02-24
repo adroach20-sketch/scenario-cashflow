@@ -223,6 +223,7 @@ function App() {
           onAddStream={handleAddStream}
           onUpdateStream={handleUpdateStream}
           onDeleteStream={handleDeleteStream}
+          onSetupChange={handleSetupChange}
         />
       )}
     </AppShell>

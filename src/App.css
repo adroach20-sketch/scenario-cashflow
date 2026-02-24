@@ -776,6 +776,66 @@ button.danger:disabled:hover {
   color: #6b7280;
 }
 
+.ws-th-actions {
+  text-align: right;
+  width: 120px;
+}
+
+.ws-td-actions-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ws-td-actions-cell button {
+  font-size: 0.75rem;
+  padding: 0.25em 0.625em;
+  margin-left: 0.375rem;
+}
+
+.ws-td-editor {
+  padding: 0.75rem;
+  background: #f9fafb;
+}
+
+.worksheet-table-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ws-clickable {
+  cursor: pointer;
+}
+
+.ws-clickable:hover .worksheet-balance-value {
+  color: #2563eb;
+}
+
+.ws-edit-hint {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+  margin-left: 0.5rem;
+  font-weight: 400;
+}
+
+.ws-clickable:hover .ws-edit-hint {
+  color: #2563eb;
+}
+
+.ws-inline-edit {
+  display: flex;
+  align-items: center;
+}
+
+.ws-inline-input {
+  width: 120px;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  outline: none;
+}
+
 /* ===== Responsive ===== */
 
 @media (max-width: 768px) {
