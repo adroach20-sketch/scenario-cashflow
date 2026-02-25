@@ -1,7 +1,7 @@
 # Scenario Cashflow — Roadmap & Decision Log
 
-## Current Version: v1.3
-Multi-scenario support with navigation shell. Deployed to Replit.
+## Current Version: v1.4
+Accounts worksheet page with spreadsheet-style stream management. Deployed to Replit.
 
 ---
 
@@ -27,10 +27,32 @@ Multi-scenario support with navigation shell. Deployed to Replit.
 
 ---
 
+## v1.4: Accounts Worksheet (COMPLETE)
+
+### What was built
+- **Accounts page** — spreadsheet-style view of all baseline streams, accessible via nav tab
+- **Four categorized tables** — Income, Fixed Expenses, Variable Expenses, Transfers with column headers
+- **Monthly normalization** — every stream shows a monthly equivalent regardless of actual frequency
+- **Summary cards** — monthly income, expenses, transfers, and net cashflow at a glance
+- **Quick-add rows** — inline name/amount/frequency entry at the bottom of each table for fast stream creation
+- **Inline editing** — click Edit to expand StreamEditor within the table row
+- **Click-to-edit balances** — starting checking, savings, and safety buffer are editable inline
+- **Shared state** — uses the same baseline streams and handlers as Forecast page; edits auto-save and affect forecasts immediately
+
+### Architecture changes
+- New page: `WorksheetPage` with `EditableBalance` and `WorksheetTable` sub-components
+- `AppShell` "Accounts" tab now active (was disabled placeholder)
+- `App.tsx` renders `WorksheetPage` when `activePage === 'worksheet'`, passing baseline + stream handlers
+- No new data model — reuses existing `CashStream` and `ScenarioConfig`
+- No backend changes — streams already persisted via existing baseline API
+- Built in Replit directly by Andrew
+
+---
+
 ## Future Phases (not yet planned in detail)
 
-### Phase 2: Balance Tracking Worksheet
-- YNAB-style page to record actual account balances over time
+### Phase 2: Balance Tracking
+- Record actual account balances over time (separate from forecast streams)
 - Separate data model from forecasting
 - Possible: overlay actuals vs forecast on the chart
 
@@ -53,3 +75,6 @@ Multi-scenario support with navigation shell. Deployed to Replit.
 | 2026-02-23 | Toggle visibility is client-only (not persisted) | Ephemeral UI preference; simpler, no DB change needed |
 | 2026-02-23 | Colors assigned by position in full decisions array | Stable colors when toggling — decision X always same color |
 | 2026-02-23 | RESTful per-decision endpoints | Clean break from destructive "delete all" pattern; safer for N decisions |
+| 2026-02-23 | Accounts page reuses CashStream model | No new data model needed — streams are streams whether viewed as a list or spreadsheet |
+| 2026-02-23 | Quick-add rows for fast entry | Reduces friction vs opening a full stream editor for simple items |
+| 2026-02-23 | Local dev with PostgreSQL + process.loadEnvFile() | Node 22 built-in; no dotenv dependency needed |

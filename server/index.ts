@@ -1,3 +1,8 @@
+// Load .env in development (Node 22 built-in, no dotenv needed)
+if (process.env.NODE_ENV !== 'production') {
+  try { process.loadEnvFile(); } catch { /* .env may not exist */ }
+}
+
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
