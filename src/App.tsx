@@ -32,7 +32,7 @@ function App() {
   const [decisions, setDecisions] = useState<DecisionConfig[]>([]);
   const [enabledDecisionIds, setEnabledDecisionIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
-  const [activePage, setActivePage] = useState<Page>('forecast');
+  const [activePage, setActivePage] = useState<Page>('worksheet');
 
   // Run the forecast engine whenever baseline or decisions change
   const { baselineResult, decisionForecasts } = useForecaster(

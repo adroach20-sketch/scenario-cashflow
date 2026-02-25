@@ -21,16 +21,16 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
         <span className="app-nav-brand">Scenario Cashflow</span>
         <div className="app-nav-links">
           <button
-            className={`nav-link ${activePage === 'forecast' ? 'nav-active' : ''}`}
-            onClick={() => onNavigate('forecast')}
-          >
-            Forecast
-          </button>
-          <button
             className={`nav-link ${activePage === 'worksheet' ? 'nav-active' : ''}`}
             onClick={() => onNavigate('worksheet')}
           >
             Accounts
+          </button>
+          <button
+            className={`nav-link ${activePage === 'forecast' ? 'nav-active' : ''}`}
+            onClick={() => onNavigate('forecast')}
+          >
+            Forecast
           </button>
         </div>
       </nav>
