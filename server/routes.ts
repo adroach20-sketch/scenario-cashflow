@@ -130,10 +130,10 @@ function rowToDecision(
       streamId: m.stream_id,
       changes: JSON.parse(m.changes_json),
     })),
-    ...(row.checking_balance_adjustment && {
+    ...(row.checking_balance_adjustment != null && {
       checkingBalanceAdjustment: row.checking_balance_adjustment,
     }),
-    ...(row.savings_balance_adjustment && {
+    ...(row.savings_balance_adjustment != null && {
       savingsBalanceAdjustment: row.savings_balance_adjustment,
     }),
   };
@@ -368,8 +368,17 @@ export function registerRoutes(app: Express): void {
 
   // ── PUT /api/baseline (backward compat — upserts by ID) ──
   app.put('/api/baseline', async (req: Request, res: Response) => {
-    const pool = getPool();
     const config = req.body;
+
+    // Validate required fields
+    const missing = ['id', 'name', 'startDate', 'endDate'].filter((f) => typeof config[f] !== 'string');
+    const badNums = ['checkingBalance', 'savingsBalance', 'safetyBuffer'].filter((f) => typeof config[f] !== 'number');
+    if (missing.length || badNums.length || !Array.isArray(config.streams)) {
+      res.status(400).json({ error: `Missing or invalid fields: ${[...missing, ...badNums, ...(!Array.isArray(config.streams) ? ['streams'] : [])].join(', ')}` });
+      return;
+    }
+
+    const pool = getPool();
     const client = await pool.connect();
 
     try {
@@ -435,9 +444,21 @@ export function registerRoutes(app: Express): void {
 
   // ── PUT /api/decisions/:id ───────────────────────────────
   app.put('/api/decisions/:id', async (req: Request, res: Response) => {
-    const pool = getPool();
     const config = req.body;
     const decisionId = req.params.id;
+
+    // Validate required fields
+    const missing = ['id', 'name', 'baselineId'].filter((f) => typeof config[f] !== 'string');
+    if (missing.length) {
+      res.status(400).json({ error: `Missing or invalid fields: ${missing.join(', ')}` });
+      return;
+    }
+    if (config.id !== decisionId) {
+      res.status(400).json({ error: `Body id "${config.id}" does not match URL id "${decisionId}"` });
+      return;
+    }
+
+    const pool = getPool();
     const client = await pool.connect();
 
     try {

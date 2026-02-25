@@ -36,6 +36,7 @@ function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [activePage, setActivePage] = useState<Page>('worksheet');
   const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { baselineResult, decisionForecasts } = useForecaster(
     baseline,
@@ -96,8 +97,10 @@ function App() {
           await apiStore.saveDecision(decision);
         }
         await refreshScenarioList();
+        setSaveError(null);
       } catch (err) {
         console.error('Auto-save failed:', err);
+        setSaveError('Changes could not be saved. Check your connection and try again.');
       } finally {
         saveInFlight.current = false;
       }
@@ -370,6 +373,13 @@ function App() {
   const isDemo = baseline.name === 'Demo Baseline';
 
   return (
+    <>
+    {saveError && (
+      <div className="save-error-banner">
+        {saveError}
+        <button onClick={() => setSaveError(null)}>Dismiss</button>
+      </div>
+    )}
     <AppShell activePage={activePage} onNavigate={setActivePage}>
       {activePage === 'worksheet' && (
         <WorksheetPage
@@ -419,6 +429,7 @@ function App() {
         />
       )}
     </AppShell>
+    </>
   );
 }
 
