@@ -54,5 +54,6 @@ export function applyDecision(
       baseline.savingsBalance + (decision.savingsBalanceAdjustment ?? 0),
     safetyBuffer: baseline.safetyBuffer,
     streams,
+    accounts: baseline.accounts || [],
   };
 }

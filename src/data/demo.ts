@@ -8,7 +8,7 @@
 
 import { v4 as uuid } from 'uuid';
 import { format, addYears } from 'date-fns';
-import type { ScenarioConfig, DecisionConfig } from '../engine';
+import type { ScenarioConfig, DecisionConfig, Account } from '../engine';
 
 function today(): string {
   return format(new Date(), 'yyyy-MM-dd');
@@ -27,6 +27,29 @@ export function createDemoBaseline(): ScenarioConfig {
     checkingBalance: 5000,
     savingsBalance: 15000,
     safetyBuffer: 3000,
+    accounts: [
+      {
+        id: uuid(),
+        name: 'Primary Checking',
+        accountType: 'checking',
+        balance: 5000,
+      } as Account,
+      {
+        id: uuid(),
+        name: 'Emergency Fund',
+        accountType: 'savings',
+        balance: 15000,
+      } as Account,
+      {
+        id: uuid(),
+        name: 'Visa Credit Card',
+        accountType: 'credit-card',
+        balance: 3200,
+        interestRate: 22.9,
+        minimumPayment: 85,
+        creditLimit: 10000,
+      } as Account,
+    ],
     streams: [
       {
         id: uuid(),

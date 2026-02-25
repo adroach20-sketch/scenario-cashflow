@@ -836,6 +836,192 @@ button.danger:disabled:hover {
   outline: none;
 }
 
+/* ===== Accounts Section ===== */
+
+.accounts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.accounts-summary-bar {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.accounts-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.accounts-summary-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.accounts-summary-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.account-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.875rem;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+}
+
+.account-card-debt {
+  border-left: 3px solid #ef4444;
+}
+
+.account-card-asset {
+  border-left: 3px solid #10b981;
+}
+
+.account-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.account-card-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #111827;
+}
+
+.account-card-type-badge {
+  font-size: 0.6875rem;
+  padding: 0.125em 0.5em;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.badge-asset {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.badge-debt {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.account-card-balance {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.account-card-debt-details {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.account-card-detail {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.account-card-edit-hint {
+  font-size: 0.6875rem;
+  color: #d1d5db;
+  align-self: flex-end;
+}
+
+.account-card:hover .account-card-edit-hint {
+  color: #2563eb;
+}
+
+.account-card-add {
+  border-style: dashed;
+  border-color: #d1d5db;
+  cursor: default;
+}
+
+.account-card-add:hover {
+  border-color: #d1d5db;
+  box-shadow: none;
+}
+
+.account-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.account-card-editing {
+  cursor: default;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.account-card-editing:hover {
+  border-color: #2563eb;
+}
+
+.account-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.account-edit-field label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.account-edit-field input,
+.account-edit-field select {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+}
+
+.account-edit-field input:focus,
+.account-edit-field select:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.account-edit-actions {
+  display: flex;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.account-edit-actions button {
+  font-size: 0.75rem;
+  padding: 0.25em 0.75em;
+}
+
 .ws-quick-add-row {
   background: #f9fafb;
   border-top: 2px dashed #e5e7eb;

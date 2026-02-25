@@ -22,6 +22,7 @@ const baseline: ScenarioConfig = {
   checkingBalance: 2317.15, // From spreadsheet: Jan 30 starting checking
   savingsBalance: 10006.3, // From spreadsheet: savings balance
   safetyBuffer: 3000, // Comfortable minimum in checking
+  accounts: [],
   streams: [
     // === INCOME ===
     {

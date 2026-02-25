@@ -103,5 +103,20 @@ export async function initDb(): Promise<void> {
   await pool.query(`ALTER TABLE streams ADD COLUMN IF NOT EXISTS category TEXT`);
   await pool.query(`ALTER TABLE decision_add_streams ADD COLUMN IF NOT EXISTS category TEXT`);
 
+  // v1.3: Add accounts table for tracking financial accounts
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      scenario_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      account_type TEXT NOT NULL,
+      balance REAL NOT NULL DEFAULT 0,
+      interest_rate REAL,
+      minimum_payment REAL,
+      credit_limit REAL,
+      FOREIGN KEY (scenario_id) REFERENCES scenarios(id) ON DELETE CASCADE
+    )
+  `);
+
   console.log('Database initialized (PostgreSQL)');
 }

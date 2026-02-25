@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuid } from 'uuid';
 import { format } from 'date-fns';
-import type { ScenarioConfig, CashStream, StreamType, ExpenseCategory, Frequency } from '../engine';
+import type { ScenarioConfig, CashStream, StreamType, ExpenseCategory, Frequency, Account } from '../engine';
 import { StreamEditor } from '../components/StreamEditor';
+import { AccountsSection } from '../components/AccountsSection';
 
 interface WorksheetPageProps {
   baseline: ScenarioConfig;
@@ -10,6 +11,9 @@ interface WorksheetPageProps {
   onDeleteStream: (streamId: string) => void;
   onAddStream: (stream: CashStream) => void;
   onSetupChange: (field: string, value: number | string) => void;
+  onAddAccount: (account: Account) => void;
+  onUpdateAccount: (account: Account) => void;
+  onDeleteAccount: (id: string) => void;
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -51,7 +55,7 @@ function todayISO(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddStream, onSetupChange }: WorksheetPageProps) {
+export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddStream, onSetupChange, onAddAccount, onUpdateAccount, onDeleteAccount }: WorksheetPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const { incomeStreams, fixedExpenses, variableExpenses, transferStreams } = useMemo(() => {
@@ -109,9 +113,17 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
         </div>
       </div>
 
+      <section className="section">
+        <h2>Accounts</h2>
+        <AccountsSection
+          accounts={baseline.accounts || []}
+          onAdd={onAddAccount}
+          onUpdate={onUpdateAccount}
+          onDelete={onDeleteAccount}
+        />
+      </section>
+
       <div className="worksheet-balances">
-        <EditableBalance label="Starting Checking" value={baseline.checkingBalance} field="checkingBalance" onChange={onSetupChange} />
-        <EditableBalance label="Starting Savings" value={baseline.savingsBalance} field="savingsBalance" onChange={onSetupChange} />
         <EditableBalance label="Safety Buffer" value={baseline.safetyBuffer} field="safetyBuffer" onChange={onSetupChange} />
         <div className="worksheet-balance-item">
           <span className="worksheet-balance-label">Forecast Period</span>

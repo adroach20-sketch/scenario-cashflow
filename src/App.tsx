@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { ScenarioConfig, DecisionConfig, CashStream } from './engine';
+import type { ScenarioConfig, DecisionConfig, CashStream, Account } from './engine';
 import { useForecaster } from './hooks/useForecaster';
 import { apiStore } from './store/apiClient';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
@@ -15,6 +15,17 @@ import { AppShell, type Page } from './components/AppShell';
 import { ForecastPage } from './pages/ForecastPage';
 import { WorksheetPage } from './pages/WorksheetPage';
 import './App.css';
+
+function syncAccountBalances(config: ScenarioConfig): ScenarioConfig {
+  const accounts = config.accounts || [];
+  const checking = accounts.find((a) => a.accountType === 'checking');
+  const savings = accounts.find((a) => a.accountType === 'savings');
+  return {
+    ...config,
+    checkingBalance: checking?.balance ?? config.checkingBalance,
+    savingsBalance: savings?.balance ?? config.savingsBalance,
+  };
+}
 
 function App() {
   const [baseline, setBaseline] = useState<ScenarioConfig | null>(null);
@@ -40,6 +51,12 @@ function App() {
       const savedDecisions = await apiStore.getDecisions();
 
       if (savedBaseline) {
+        if (!savedBaseline.accounts || savedBaseline.accounts.length === 0) {
+          savedBaseline.accounts = [
+            { id: crypto.randomUUID(), name: 'Checking', accountType: 'checking' as const, balance: savedBaseline.checkingBalance },
+            { id: crypto.randomUUID(), name: 'Savings', accountType: 'savings' as const, balance: savedBaseline.savingsBalance },
+          ];
+        }
         setBaseline(savedBaseline);
         setDecisions(savedDecisions);
         setEnabledDecisionIds(new Set(savedDecisions.map((d) => d.id)));
@@ -122,6 +139,37 @@ function App() {
     );
   }, []);
 
+  // Account handlers
+  const handleAddAccount = useCallback((account: Account) => {
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, accounts: [...(prev.accounts || []), account] };
+      return syncAccountBalances(updated);
+    });
+  }, []);
+
+  const handleUpdateAccount = useCallback((updated: Account) => {
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      const newBaseline = {
+        ...prev,
+        accounts: (prev.accounts || []).map((a) => (a.id === updated.id ? updated : a)),
+      };
+      return syncAccountBalances(newBaseline);
+    });
+  }, []);
+
+  const handleDeleteAccount = useCallback((id: string) => {
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      const newBaseline = {
+        ...prev,
+        accounts: (prev.accounts || []).filter((a) => a.id !== id),
+      };
+      return syncAccountBalances(newBaseline);
+    });
+  }, []);
+
   // Decision handlers
   const handleAddDecision = useCallback(() => {
     if (!baseline) return;
@@ -183,6 +231,10 @@ function App() {
       checkingBalance: 0,
       savingsBalance: 0,
       safetyBuffer: 3000,
+      accounts: [
+        { id: crypto.randomUUID(), name: 'Checking', accountType: 'checking' as const, balance: 0 },
+        { id: crypto.randomUUID(), name: 'Savings', accountType: 'savings' as const, balance: 0 },
+      ],
       streams: [],
     };
     setBaseline(fresh);
@@ -224,6 +276,9 @@ function App() {
           onUpdateStream={handleUpdateStream}
           onDeleteStream={handleDeleteStream}
           onSetupChange={handleSetupChange}
+          onAddAccount={handleAddAccount}
+          onUpdateAccount={handleUpdateAccount}
+          onDeleteAccount={handleDeleteAccount}
         />
       )}
     </AppShell>

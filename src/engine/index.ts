@@ -15,8 +15,10 @@ export { doesStreamFireOnDate } from './schedule';
 export type {
   Frequency,
   AccountType,
+  FinancialAccountType,
   StreamType,
   ExpenseCategory,
+  Account,
   CashStream,
   ScenarioConfig,
   DecisionConfig,

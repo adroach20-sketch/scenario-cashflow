@@ -42,6 +42,29 @@ interface StreamRow {
   category: string | null;
 }
 
+interface AccountRow {
+  id: string;
+  scenario_id: string;
+  name: string;
+  account_type: string;
+  balance: number;
+  interest_rate: number | null;
+  minimum_payment: number | null;
+  credit_limit: number | null;
+}
+
+function rowToAccount(row: AccountRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    accountType: row.account_type,
+    balance: row.balance,
+    ...(row.interest_rate != null && { interestRate: row.interest_rate }),
+    ...(row.minimum_payment != null && { minimumPayment: row.minimum_payment }),
+    ...(row.credit_limit != null && { creditLimit: row.credit_limit }),
+  };
+}
+
 interface DecisionRow {
   id: string;
   user_id: string | null;
@@ -68,7 +91,7 @@ function rowToStream(row: StreamRow) {
   };
 }
 
-function rowToScenario(row: ScenarioRow, streams: StreamRow[]) {
+function rowToScenario(row: ScenarioRow, streams: StreamRow[], accounts: AccountRow[]) {
   return {
     id: row.id,
     name: row.name,
@@ -78,6 +101,7 @@ function rowToScenario(row: ScenarioRow, streams: StreamRow[]) {
     savingsBalance: row.savings_balance,
     safetyBuffer: row.safety_buffer,
     streams: streams.map(rowToStream),
+    accounts: accounts.map(rowToAccount),
   };
 }
 
@@ -197,8 +221,12 @@ export function registerRoutes(app: Express): void {
       'SELECT * FROM streams WHERE scenario_id = $1',
       [scenario.id]
     );
+    const { rows: accounts } = await pool.query<AccountRow>(
+      'SELECT * FROM accounts WHERE scenario_id = $1',
+      [scenario.id]
+    );
 
-    res.json(rowToScenario(scenario, streams));
+    res.json(rowToScenario(scenario, streams, accounts));
   });
 
   // ── PUT /api/baseline ──────────────────────────────────────
@@ -247,6 +275,24 @@ export function registerRoutes(app: Express): void {
             stream.dayOfMonth ?? null,
             stream.anchorDate || null,
             stream.category || null,
+          ]
+        );
+      }
+
+      // Insert all accounts
+      for (const acct of config.accounts || []) {
+        await client.query(
+          `INSERT INTO accounts (id, scenario_id, name, account_type, balance, interest_rate, minimum_payment, credit_limit)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            acct.id,
+            config.id,
+            acct.name,
+            acct.accountType,
+            acct.balance,
+            acct.interestRate ?? null,
+            acct.minimumPayment ?? null,
+            acct.creditLimit ?? null,
           ]
         );
       }

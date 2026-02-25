@@ -16,6 +16,29 @@ export type Frequency =
 // Which account a stream affects
 export type AccountType = 'checking' | 'savings';
 
+// What kind of financial account this is
+export type FinancialAccountType = 'checking' | 'savings' | 'credit-card' | 'loan' | 'investment';
+
+/**
+ * A financial account the user tracks.
+ *
+ * Examples:
+ *  - Checking: "Chase Checking" — $5,000 balance
+ *  - Savings: "Emergency Fund" — $15,000 balance
+ *  - Credit Card: "Visa" — $3,200 balance, 22.9% APR, $85 min payment
+ *  - Loan: "Car Loan" — $18,000 balance, 4.5% APR, $650/mo payment
+ *  - Investment: "Brokerage" — $42,000 balance
+ */
+export interface Account {
+  id: string;
+  name: string;
+  accountType: FinancialAccountType;
+  balance: number;
+  interestRate?: number;
+  minimumPayment?: number;
+  creditLimit?: number;
+}
+
 // Whether money is coming in, going out, or moving between accounts
 export type StreamType = 'income' | 'expense' | 'transfer';
 
@@ -59,6 +82,7 @@ export interface ScenarioConfig {
   savingsBalance: number; // Starting savings account balance
   safetyBuffer: number; // The minimum checking balance you're comfortable with
   streams: CashStream[];
+  accounts: Account[];
 }
 
 /**

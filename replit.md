@@ -22,9 +22,13 @@ Preferred communication style: Simple, everyday language.
   - `SetupPanel` — starting balances, date range, safety buffer
   - `StreamList` — CRUD for cash streams (income/expense/transfer)
   - `StreamEditor` — form for adding/editing a single stream
+  - `AccountsSection` — account cards (checking, savings, credit card, loan, investment) with inline editing
   - `DecisionPanel` — define modifications to baseline (add/remove/modify streams, adjust balances)
   - `ForecastChart` — Recharts visualization
   - `MetricsPanel` — summary metric cards with delta indicators
+- **Pages:** `src/pages/`
+  - `ForecastPage` — chart + setup + decisions
+  - `WorksheetPage` (Accounts tab) — accounts management + income/expense/transfer tables with quick-add rows
 
 ### Forecasting Engine (`src/engine/`)
 
@@ -59,7 +63,7 @@ Preferred communication style: Simple, everyday language.
   - `DELETE /api/data` — clear all data
   - `GET /api/health` — health check
 - **Express 5 note:** Uses `{*splat}` syntax for catch-all routes (not `*`)
-- **Database schema:** Tables include `scenarios`, `streams`, `decisions`, `decision_add_streams`, `decision_remove_streams`, `decision_modify_streams`
+- **Database schema:** Tables include `scenarios`, `streams`, `accounts`, `decisions`, `decision_add_streams`, `decision_remove_streams`, `decision_modify_streams`
 
 ### Build & Dev
 
@@ -69,8 +73,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Concepts / Domain Model
 
+- **Account:** A financial account (checking, savings, credit card, loan, investment) with balance and optional debt fields (interestRate, minimumPayment, creditLimit)
 - **CashStream:** A recurring or one-time money flow (income, expense, or transfer between accounts)
-- **ScenarioConfig:** Starting balances + array of streams + date range = complete scenario input
+- **ScenarioConfig:** Starting balances + accounts + array of streams + date range = complete scenario input. Checking/savings balances on ScenarioConfig are synced from the accounts array for backward compatibility with the forecast engine.
 - **DecisionConfig:** Modifications to a baseline — add streams, remove streams, modify streams, adjust balances
 - **ForecastResult:** Array of DailySnapshots + ForecastMetrics summary
 - **ComparisonMetrics:** Deltas between baseline and decision (min balance delta, buffer days delta, ending balance delta)
