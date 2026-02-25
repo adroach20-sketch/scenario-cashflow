@@ -1,12 +1,4 @@
-/**
- * Top-level navigation shell.
- *
- * Wraps the entire app with a nav bar and main content area.
- * Pages are switched via a simple state variable — no router needed
- * since we only have 2-3 pages.
- */
-
-export type Page = 'forecast' | 'worksheet';
+export type Page = 'worksheet' | 'scenarios' | 'forecast';
 
 interface AppShellProps {
   activePage: Page;
@@ -25,6 +17,12 @@ export function AppShell({ activePage, onNavigate, children }: AppShellProps) {
             onClick={() => onNavigate('worksheet')}
           >
             Accounts
+          </button>
+          <button
+            className={`nav-link ${activePage === 'scenarios' ? 'nav-active' : ''}`}
+            onClick={() => onNavigate('scenarios')}
+          >
+            Scenarios
           </button>
           <button
             className={`nav-link ${activePage === 'forecast' ? 'nav-active' : ''}`}

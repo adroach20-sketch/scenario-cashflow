@@ -26,9 +26,10 @@ Preferred communication style: Simple, everyday language.
   - `DecisionPanel` — define modifications to baseline (add/remove/modify streams, adjust balances)
   - `ForecastChart` — Recharts visualization
   - `MetricsPanel` — summary metric cards with delta indicators
-- **Pages:** `src/pages/`
-  - `ForecastPage` — wizard-style 4-step flow: (1) Decision details, (2) Review accounts & settings, (3) Adjust streams, (4) Results (chart + metrics table)
+- **Pages:** `src/pages/` — three-tab structure:
   - `WorksheetPage` (Accounts tab) — accounts management + income/expense/transfer tables with quick-add rows
+  - `ScenariosPage` (Scenarios tab) — 3-step wizard: (1) Decision details, (2) Review accounts & settings, (3) Adjust streams; includes scenario picker, create/delete/switch, import from previous scenario
+  - `ForecastPage` (Forecast tab) — results-only view: scenario bar showing current scenario + decisions, collapsible summary, chart (ForecastChart), and metrics table (MetricsPanel); "Edit Scenario" button navigates back to Scenarios tab
 
 ### Forecasting Engine (`src/engine/`)
 

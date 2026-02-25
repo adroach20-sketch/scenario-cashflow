@@ -117,6 +117,45 @@
 
 /* ===== Scenario Picker ===== */
 
+.forecast-scenario-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.forecast-scenario-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.forecast-scenario-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.forecast-scenario-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.forecast-scenario-decisions {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .scenario-picker {
   display: flex;
   align-items: center;

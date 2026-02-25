@@ -14,6 +14,7 @@ import type { ScenarioSummary } from './store/types';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
 import { AppShell, type Page } from './components/AppShell';
 import { ForecastPage } from './pages/ForecastPage';
+import { ScenariosPage } from './pages/ScenariosPage';
 import { WorksheetPage } from './pages/WorksheetPage';
 import './App.css';
 
@@ -68,7 +69,6 @@ function App() {
   useEffect(() => {
     async function load() {
       const list = await refreshScenarioList();
-
       if (list.length > 0) {
         await loadScenario(list[0].id);
       } else {
@@ -85,7 +85,6 @@ function App() {
 
   useEffect(() => {
     if (!isLoaded) return;
-
     const timer = setTimeout(async () => {
       if (saveInFlight.current) return;
       saveInFlight.current = true;
@@ -103,7 +102,6 @@ function App() {
         saveInFlight.current = false;
       }
     }, 500);
-
     return () => clearTimeout(timer);
   }, [baseline, decisions, isLoaded]);
 
@@ -123,10 +121,7 @@ function App() {
   const handleUpdateStream = useCallback((updated: CashStream) => {
     setBaseline((prev) =>
       prev
-        ? {
-            ...prev,
-            streams: prev.streams.map((s) => (s.id === updated.id ? updated : s)),
-          }
+        ? { ...prev, streams: prev.streams.map((s) => (s.id === updated.id ? updated : s)) }
         : prev
     );
   }, []);
@@ -302,7 +297,6 @@ function App() {
       };
 
       let netMonthly = 0;
-
       for (const stream of decision.addStreams) {
         const mult = MONTHLY_MULTIPLIER[stream.frequency] ?? 1;
         if (stream.type === 'income') {
@@ -311,7 +305,6 @@ function App() {
           netMonthly -= stream.amount * mult;
         }
       }
-
       for (const removedId of decision.removeStreamIds) {
         const baseStream = scenario.streams.find((s) => s.id === removedId);
         if (baseStream) {
@@ -329,7 +322,6 @@ function App() {
 
       const isExpense = netMonthly < 0;
       const today = new Date().toISOString().split('T')[0];
-
       const newStream: CashStream = {
         id: crypto.randomUUID(),
         name: `${decision.name} (from ${scenario.name})`,
@@ -340,7 +332,6 @@ function App() {
         startDate: today,
         dayOfMonth: 1,
       };
-
       setBaseline((prev) =>
         prev ? { ...prev, streams: [...prev.streams, newStream] } : prev
       );
@@ -380,15 +371,25 @@ function App() {
 
   return (
     <AppShell activePage={activePage} onNavigate={setActivePage}>
-      {activePage === 'forecast' && (
-        <ForecastPage
+      {activePage === 'worksheet' && (
+        <WorksheetPage
+          baseline={baseline}
+          onAddStream={handleAddStream}
+          onUpdateStream={handleUpdateStream}
+          onDeleteStream={handleDeleteStream}
+          onSetupChange={handleSetupChange}
+          onAddAccount={handleAddAccount}
+          onUpdateAccount={handleUpdateAccount}
+          onDeleteAccount={handleDeleteAccount}
+        />
+      )}
+      {activePage === 'scenarios' && (
+        <ScenariosPage
           baseline={baseline}
           decisions={decisions}
           enabledDecisionIds={enabledDecisionIds}
-          baselineResult={baselineResult}
-          decisionForecasts={decisionForecasts}
-          isDemo={isDemo}
           scenarioList={scenarioList}
+          isDemo={isDemo}
           onSetupChange={handleSetupChange}
           onToggleStream={handleToggleStream}
           onOverrideStream={handleOverrideStream}
@@ -405,16 +406,16 @@ function App() {
           onScenarioNameChange={(name: string) => setBaseline((prev) => prev ? { ...prev, name } : prev)}
         />
       )}
-      {activePage === 'worksheet' && (
-        <WorksheetPage
+      {activePage === 'forecast' && (
+        <ForecastPage
           baseline={baseline}
-          onAddStream={handleAddStream}
-          onUpdateStream={handleUpdateStream}
-          onDeleteStream={handleDeleteStream}
-          onSetupChange={handleSetupChange}
-          onAddAccount={handleAddAccount}
-          onUpdateAccount={handleUpdateAccount}
-          onDeleteAccount={handleDeleteAccount}
+          decisions={decisions}
+          enabledDecisionIds={enabledDecisionIds}
+          baselineResult={baselineResult}
+          decisionForecasts={decisionForecasts}
+          scenarioList={scenarioList}
+          onNavigate={setActivePage}
+          onSwitchScenario={handleSwitchScenario}
         />
       )}
     </AppShell>
