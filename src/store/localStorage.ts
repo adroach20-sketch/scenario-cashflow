@@ -7,12 +7,31 @@
  */
 
 import type { ScenarioConfig, DecisionConfig } from '../engine';
-import type { ScenarioStore } from './types';
+import type { ScenarioStore, ScenarioSummary } from './types';
 
 const BASELINE_KEY = 'scenario-cashflow:baseline';
 const DECISIONS_KEY = 'scenario-cashflow:decisions';
 
 export const localStorageStore: ScenarioStore = {
+  async listScenarios(): Promise<ScenarioSummary[]> {
+    const baseline = await this.getBaseline();
+    if (!baseline) return [];
+    return [{ id: baseline.id, name: baseline.name, updatedAt: new Date().toISOString() }];
+  },
+
+  async getScenario(id: string): Promise<ScenarioConfig | null> {
+    const baseline = await this.getBaseline();
+    return baseline && baseline.id === id ? baseline : null;
+  },
+
+  async saveScenario(config: ScenarioConfig): Promise<void> {
+    await this.saveBaseline(config);
+  },
+
+  async deleteScenario(_id: string): Promise<void> {
+    localStorage.removeItem(BASELINE_KEY);
+  },
+
   async getBaseline(): Promise<ScenarioConfig | null> {
     const raw = localStorage.getItem(BASELINE_KEY);
     return raw ? JSON.parse(raw) : null;
@@ -25,6 +44,10 @@ export const localStorageStore: ScenarioStore = {
   async getDecisions(): Promise<DecisionConfig[]> {
     const raw = localStorage.getItem(DECISIONS_KEY);
     return raw ? JSON.parse(raw) : [];
+  },
+
+  async getDecisionsForScenario(_scenarioId: string): Promise<DecisionConfig[]> {
+    return this.getDecisions();
   },
 
   async saveDecision(config: DecisionConfig): Promise<void> {

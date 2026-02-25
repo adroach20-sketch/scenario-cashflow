@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ScenarioConfig, DecisionConfig, CashStream, Account } from './engine';
 import { useForecaster } from './hooks/useForecaster';
 import { apiStore } from './store/apiClient';
+import type { ScenarioSummary } from './store/types';
 import { createDemoBaseline, createDemoDecision } from './data/demo';
 import { AppShell, type Page } from './components/AppShell';
 import { ForecastPage } from './pages/ForecastPage';
@@ -33,35 +34,44 @@ function App() {
   const [enabledDecisionIds, setEnabledDecisionIds] = useState<Set<string>>(new Set());
   const [isLoaded, setIsLoaded] = useState(false);
   const [activePage, setActivePage] = useState<Page>('worksheet');
+  const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
 
-  // Run the forecast engine whenever baseline or decisions change
   const { baselineResult, decisionForecasts } = useForecaster(
     baseline,
     decisions,
     enabledDecisionIds
   );
 
-  // Track whether a save is already in flight to avoid overlapping requests
   const saveInFlight = useRef(false);
 
-  // Load from server on mount (or create demo data)
+  async function loadScenario(id: string) {
+    const scenario = await apiStore.getScenario(id);
+    if (!scenario) return;
+    if (!scenario.accounts || scenario.accounts.length === 0) {
+      scenario.accounts = [
+        { id: crypto.randomUUID(), name: 'Checking', accountType: 'checking' as const, balance: scenario.checkingBalance },
+        { id: crypto.randomUUID(), name: 'Savings', accountType: 'savings' as const, balance: scenario.savingsBalance },
+      ];
+    }
+    const scenarioDecisions = await apiStore.getDecisionsForScenario(id);
+    setBaseline(scenario);
+    setDecisions(scenarioDecisions);
+    setEnabledDecisionIds(new Set(scenarioDecisions.map((d) => d.id)));
+  }
+
+  async function refreshScenarioList() {
+    const list = await apiStore.listScenarios();
+    setScenarioList(list);
+    return list;
+  }
+
   useEffect(() => {
     async function load() {
-      const savedBaseline = await apiStore.getBaseline();
-      const savedDecisions = await apiStore.getDecisions();
+      const list = await refreshScenarioList();
 
-      if (savedBaseline) {
-        if (!savedBaseline.accounts || savedBaseline.accounts.length === 0) {
-          savedBaseline.accounts = [
-            { id: crypto.randomUUID(), name: 'Checking', accountType: 'checking' as const, balance: savedBaseline.checkingBalance },
-            { id: crypto.randomUUID(), name: 'Savings', accountType: 'savings' as const, balance: savedBaseline.savingsBalance },
-          ];
-        }
-        setBaseline(savedBaseline);
-        setDecisions(savedDecisions);
-        setEnabledDecisionIds(new Set(savedDecisions.map((d) => d.id)));
+      if (list.length > 0) {
+        await loadScenario(list[0].id);
       } else {
-        // First visit: load demo data
         const demo = createDemoBaseline();
         const demoDecision = createDemoDecision(demo.id);
         setBaseline(demo);
@@ -73,7 +83,6 @@ function App() {
     load();
   }, []);
 
-  // Auto-save with debounce (500ms)
   useEffect(() => {
     if (!isLoaded) return;
 
@@ -82,11 +91,12 @@ function App() {
       saveInFlight.current = true;
       try {
         if (baseline) {
-          await apiStore.saveBaseline(baseline);
+          await apiStore.saveScenario(baseline);
         }
         for (const decision of decisions) {
           await apiStore.saveDecision(decision);
         }
+        await refreshScenarioList();
       } catch (err) {
         console.error('Auto-save failed:', err);
       } finally {
@@ -97,7 +107,6 @@ function App() {
     return () => clearTimeout(timer);
   }, [baseline, decisions, isLoaded]);
 
-  // Setup panel change handler
   const handleSetupChange = useCallback(
     (field: string, value: number | string) => {
       setBaseline((prev) => (prev ? { ...prev, [field]: value } : prev));
@@ -105,7 +114,6 @@ function App() {
     []
   );
 
-  // Stream handlers for baseline
   const handleAddStream = useCallback((stream: CashStream) => {
     setBaseline((prev) =>
       prev ? { ...prev, streams: [...prev.streams, stream] } : prev
@@ -129,7 +137,6 @@ function App() {
         ? { ...prev, streams: prev.streams.filter((s) => s.id !== streamId) }
         : prev
     );
-    // Clean up references across all decisions
     setDecisions((prev) =>
       prev.map((d) => ({
         ...d,
@@ -139,7 +146,6 @@ function App() {
     );
   }, []);
 
-  // Stream toggle/override handlers for forecast scenarios
   const handleToggleStream = useCallback((streamId: string) => {
     setBaseline((prev) => {
       if (!prev) return prev;
@@ -167,7 +173,6 @@ function App() {
     });
   }, []);
 
-  // Account handlers
   const handleAddAccount = useCallback((account: Account) => {
     setBaseline((prev) => {
       if (!prev) return prev;
@@ -198,7 +203,6 @@ function App() {
     });
   }, []);
 
-  // Decision handlers
   const handleAddDecision = useCallback(() => {
     if (!baseline) return;
     const newDecision: DecisionConfig = {
@@ -228,7 +232,6 @@ function App() {
       next.delete(id);
       return next;
     });
-    // Fire-and-forget server delete
     apiStore.deleteDecision(id).catch((err) => {
       console.error('Failed to delete decision:', err);
     });
@@ -246,9 +249,108 @@ function App() {
     });
   }, []);
 
-  // Start fresh (clear demo data)
+  const handleSwitchScenario = useCallback(async (scenarioId: string) => {
+    await loadScenario(scenarioId);
+  }, []);
+
+  const handleNewScenario = useCallback(async () => {
+    const fresh: ScenarioConfig = {
+      id: crypto.randomUUID(),
+      name: 'New Scenario',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0],
+      checkingBalance: 0,
+      savingsBalance: 0,
+      safetyBuffer: 3000,
+      accounts: [
+        { id: crypto.randomUUID(), name: 'Checking', accountType: 'checking' as const, balance: 0 },
+        { id: crypto.randomUUID(), name: 'Savings', accountType: 'savings' as const, balance: 0 },
+      ],
+      streams: [],
+    };
+    setBaseline(fresh);
+    setDecisions([]);
+    setEnabledDecisionIds(new Set());
+  }, []);
+
+  const handleDeleteScenario = useCallback(async (scenarioId: string) => {
+    await apiStore.deleteScenario(scenarioId);
+    const list = await refreshScenarioList();
+    if (list.length > 0) {
+      await loadScenario(list[0].id);
+    } else {
+      await handleNewScenario();
+    }
+  }, [handleNewScenario]);
+
+  const handleImportDecisionAsStream = useCallback(
+    async (scenarioId: string, decisionId: string) => {
+      const scenario = await apiStore.getScenario(scenarioId);
+      if (!scenario) return;
+      const scenarioDecisions = await apiStore.getDecisionsForScenario(scenarioId);
+      const decision = scenarioDecisions.find((d) => d.id === decisionId);
+      if (!decision) return;
+
+      const MONTHLY_MULTIPLIER: Record<string, number> = {
+        weekly: 52 / 12,
+        biweekly: 26 / 12,
+        semimonthly: 2,
+        monthly: 1,
+        'one-time': 0,
+      };
+
+      let netMonthly = 0;
+
+      for (const stream of decision.addStreams) {
+        const mult = MONTHLY_MULTIPLIER[stream.frequency] ?? 1;
+        if (stream.type === 'income') {
+          netMonthly += stream.amount * mult;
+        } else if (stream.type === 'expense') {
+          netMonthly -= stream.amount * mult;
+        }
+      }
+
+      for (const removedId of decision.removeStreamIds) {
+        const baseStream = scenario.streams.find((s) => s.id === removedId);
+        if (baseStream) {
+          const mult = MONTHLY_MULTIPLIER[baseStream.frequency] ?? 1;
+          if (baseStream.type === 'income') {
+            netMonthly -= baseStream.amount * mult;
+          } else if (baseStream.type === 'expense') {
+            netMonthly += baseStream.amount * mult;
+          }
+        }
+      }
+
+      const netAmount = Math.round(Math.abs(netMonthly));
+      if (netAmount === 0) return;
+
+      const isExpense = netMonthly < 0;
+      const today = new Date().toISOString().split('T')[0];
+
+      const newStream: CashStream = {
+        id: crypto.randomUUID(),
+        name: `${decision.name} (from ${scenario.name})`,
+        amount: netAmount,
+        type: isExpense ? 'expense' : 'income',
+        frequency: 'monthly',
+        account: 'checking',
+        startDate: today,
+        dayOfMonth: 1,
+      };
+
+      setBaseline((prev) =>
+        prev ? { ...prev, streams: [...prev.streams, newStream] } : prev
+      );
+    },
+    []
+  );
+
   const handleStartFresh = useCallback(async () => {
     await apiStore.clear();
+    setScenarioList([]);
     const fresh: ScenarioConfig = {
       id: crypto.randomUUID(),
       name: 'My Baseline',
@@ -286,6 +388,7 @@ function App() {
           baselineResult={baselineResult}
           decisionForecasts={decisionForecasts}
           isDemo={isDemo}
+          scenarioList={scenarioList}
           onSetupChange={handleSetupChange}
           onToggleStream={handleToggleStream}
           onOverrideStream={handleOverrideStream}
@@ -295,6 +398,11 @@ function App() {
           onToggleDecision={handleToggleDecision}
           onStartFresh={handleStartFresh}
           onNavigate={setActivePage}
+          onSwitchScenario={handleSwitchScenario}
+          onNewScenario={handleNewScenario}
+          onDeleteScenario={handleDeleteScenario}
+          onImportDecisionAsStream={handleImportDecisionAsStream}
+          onScenarioNameChange={(name: string) => setBaseline((prev) => prev ? { ...prev, name } : prev)}
         />
       )}
       {activePage === 'worksheet' && (

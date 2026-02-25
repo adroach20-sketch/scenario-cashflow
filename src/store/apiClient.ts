@@ -6,11 +6,38 @@
  */
 
 import type { ScenarioConfig, DecisionConfig } from '../engine';
-import type { ScenarioStore } from './types';
+import type { ScenarioStore, ScenarioSummary } from './types';
 
 const API_BASE = '/api';
 
 export const apiStore: ScenarioStore = {
+  async listScenarios(): Promise<ScenarioSummary[]> {
+    const res = await fetch(`${API_BASE}/scenarios`);
+    if (!res.ok) throw new Error(`Failed to list scenarios: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getScenario(id: string): Promise<ScenarioConfig | null> {
+    const res = await fetch(`${API_BASE}/scenarios/${id}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Failed to load scenario: ${res.statusText}`);
+    return res.json();
+  },
+
+  async saveScenario(config: ScenarioConfig): Promise<void> {
+    const res = await fetch(`${API_BASE}/scenarios/${config.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    if (!res.ok) throw new Error(`Failed to save scenario: ${res.statusText}`);
+  },
+
+  async deleteScenario(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/scenarios/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Failed to delete scenario: ${res.statusText}`);
+  },
+
   async getBaseline(): Promise<ScenarioConfig | null> {
     const res = await fetch(`${API_BASE}/baseline`);
     if (res.status === 204) return null;
@@ -29,6 +56,13 @@ export const apiStore: ScenarioStore = {
 
   async getDecisions(): Promise<DecisionConfig[]> {
     const res = await fetch(`${API_BASE}/decisions`);
+    if (res.status === 204) return [];
+    if (!res.ok) throw new Error(`Failed to load decisions: ${res.statusText}`);
+    return res.json();
+  },
+
+  async getDecisionsForScenario(scenarioId: string): Promise<DecisionConfig[]> {
+    const res = await fetch(`${API_BASE}/decisions/scenario/${scenarioId}`);
     if (res.status === 204) return [];
     if (!res.ok) throw new Error(`Failed to load decisions: ${res.statusText}`);
     return res.json();

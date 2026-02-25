@@ -2,18 +2,22 @@
  * API route handlers.
  *
  * Endpoints:
- * - GET/PUT /api/baseline     — single baseline scenario with embedded streams
- * - GET /api/decisions         — all decisions with child records
- * - PUT /api/decisions/:id     — upsert a single decision by ID
- * - DELETE /api/decisions/:id  — delete a single decision by ID
- * - DELETE /api/data           — clear everything
+ * - GET    /api/scenarios          — list all scenarios (id, name, updatedAt)
+ * - GET    /api/scenarios/:id      — load a full scenario with streams/accounts
+ * - PUT    /api/scenarios/:id      — upsert a scenario
+ * - DELETE /api/scenarios/:id      — delete a scenario and its children
+ * - GET    /api/baseline           — load first scenario (backward compat)
+ * - PUT    /api/baseline           — save/upsert single scenario (backward compat)
+ * - GET    /api/decisions          — all decisions with child records
+ * - GET    /api/decisions/scenario/:scenarioId — decisions for a specific scenario
+ * - PUT    /api/decisions/:id      — upsert a single decision
+ * - DELETE /api/decisions/:id      — delete a single decision
+ * - DELETE /api/data               — clear everything
  */
 
 import type { Express, Request, Response, NextFunction } from 'express';
 import type { PoolClient } from 'pg';
 import { getPool } from './db.js';
-
-// ─── camelCase ↔ snake_case helpers ─────────────────────────────
 
 interface ScenarioRow {
   id: string;
@@ -26,6 +30,7 @@ interface ScenarioRow {
   safety_buffer: number;
   disabled_stream_ids: string | null;
   stream_overrides: string | null;
+  updated_at: string | null;
 }
 
 interface StreamRow {
@@ -134,8 +139,6 @@ function rowToDecision(
   };
 }
 
-// ─── Shared helper: load child records for a decision ───────────
-
 async function loadDecisionChildren(pool: ReturnType<typeof getPool>, decisionId: string) {
   const { rows: addStreams } = await pool.query<StreamRow>(
     'SELECT * FROM decision_add_streams WHERE decision_id = $1',
@@ -161,8 +164,6 @@ async function loadDecisionChildren(pool: ReturnType<typeof getPool>, decisionId
     modifyRows,
   };
 }
-
-// ─── Shared helper: insert decision child records ───────────────
 
 async function insertDecisionChildren(
   client: PoolClient,
@@ -205,14 +206,146 @@ async function insertDecisionChildren(
   }
 }
 
-// ─── Route registration ─────────────────────────────────────────
+async function upsertScenario(client: PoolClient, config: any) {
+  await client.query(
+    `INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer, disabled_stream_ids, stream_overrides, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+     ON CONFLICT (id) DO UPDATE SET
+       name = EXCLUDED.name,
+       start_date = EXCLUDED.start_date,
+       end_date = EXCLUDED.end_date,
+       checking_balance = EXCLUDED.checking_balance,
+       savings_balance = EXCLUDED.savings_balance,
+       safety_buffer = EXCLUDED.safety_buffer,
+       disabled_stream_ids = EXCLUDED.disabled_stream_ids,
+       stream_overrides = EXCLUDED.stream_overrides,
+       updated_at = NOW()`,
+    [
+      config.id,
+      config.name,
+      config.startDate,
+      config.endDate,
+      config.checkingBalance,
+      config.savingsBalance,
+      config.safetyBuffer,
+      config.disabledStreamIds ? JSON.stringify(config.disabledStreamIds) : null,
+      config.streamOverrides ? JSON.stringify(config.streamOverrides) : null,
+    ]
+  );
+
+  await client.query('DELETE FROM streams WHERE scenario_id = $1', [config.id]);
+  await client.query('DELETE FROM accounts WHERE scenario_id = $1', [config.id]);
+
+  for (const stream of config.streams || []) {
+    await client.query(
+      `INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        stream.id,
+        config.id,
+        stream.name,
+        stream.amount,
+        stream.type,
+        stream.frequency,
+        stream.account,
+        stream.targetAccount || null,
+        stream.startDate,
+        stream.endDate || null,
+        stream.dayOfMonth ?? null,
+        stream.anchorDate || null,
+        stream.category || null,
+      ]
+    );
+  }
+
+  for (const acct of config.accounts || []) {
+    await client.query(
+      `INSERT INTO accounts (id, scenario_id, name, account_type, balance, interest_rate, minimum_payment, credit_limit)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        acct.id,
+        config.id,
+        acct.name,
+        acct.accountType,
+        acct.balance,
+        acct.interestRate ?? null,
+        acct.minimumPayment ?? null,
+        acct.creditLimit ?? null,
+      ]
+    );
+  }
+}
 
 export function registerRoutes(app: Express): void {
-  // ── GET /api/baseline ──────────────────────────────────────
+  // ── GET /api/scenarios ───────────────────────────────────
+  app.get('/api/scenarios', async (_req: Request, res: Response) => {
+    const pool = getPool();
+    const { rows } = await pool.query<{ id: string; name: string; updated_at: string }>(
+      'SELECT id, name, updated_at FROM scenarios ORDER BY updated_at DESC'
+    );
+    res.json(rows.map((r) => ({ id: r.id, name: r.name, updatedAt: r.updated_at })));
+  });
+
+  // ── GET /api/scenarios/:id ───────────────────────────────
+  app.get('/api/scenarios/:id', async (req: Request, res: Response) => {
+    const pool = getPool();
+    const { rows: scenarios } = await pool.query<ScenarioRow>(
+      'SELECT * FROM scenarios WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (scenarios.length === 0) {
+      res.status(404).json({ error: 'Scenario not found' });
+      return;
+    }
+
+    const scenario = scenarios[0];
+    const { rows: streams } = await pool.query<StreamRow>(
+      'SELECT * FROM streams WHERE scenario_id = $1',
+      [scenario.id]
+    );
+    const { rows: accounts } = await pool.query<AccountRow>(
+      'SELECT * FROM accounts WHERE scenario_id = $1',
+      [scenario.id]
+    );
+
+    res.json(rowToScenario(scenario, streams, accounts));
+  });
+
+  // ── PUT /api/scenarios/:id ───────────────────────────────
+  app.put('/api/scenarios/:id', async (req: Request, res: Response) => {
+    const pool = getPool();
+    const config = req.body;
+    config.id = req.params.id;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      await upsertScenario(client, config);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    res.json({ ok: true });
+  });
+
+  // ── DELETE /api/scenarios/:id ────────────────────────────
+  app.delete('/api/scenarios/:id', async (req: Request, res: Response) => {
+    const pool = getPool();
+    await pool.query('DELETE FROM decisions WHERE baseline_id = $1', [req.params.id]);
+    await pool.query('DELETE FROM scenarios WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  });
+
+  // ── GET /api/baseline (backward compat) ──────────────────
   app.get('/api/baseline', async (_req: Request, res: Response) => {
     const pool = getPool();
     const { rows: scenarios } = await pool.query<ScenarioRow>(
-      'SELECT * FROM scenarios LIMIT 1'
+      'SELECT * FROM scenarios ORDER BY updated_at DESC LIMIT 1'
     );
 
     if (scenarios.length === 0) {
@@ -233,7 +366,7 @@ export function registerRoutes(app: Express): void {
     res.json(rowToScenario(scenario, streams, accounts));
   });
 
-  // ── PUT /api/baseline ──────────────────────────────────────
+  // ── PUT /api/baseline (backward compat — upserts by ID) ──
   app.put('/api/baseline', async (req: Request, res: Response) => {
     const pool = getPool();
     const config = req.body;
@@ -241,68 +374,7 @@ export function registerRoutes(app: Express): void {
 
     try {
       await client.query('BEGIN');
-
-      // Delete existing scenario(s) — CASCADE removes streams
-      await client.query('DELETE FROM scenarios');
-
-      // Insert the scenario
-      await client.query(
-        `INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer, disabled_stream_ids, stream_overrides)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          config.id,
-          config.name,
-          config.startDate,
-          config.endDate,
-          config.checkingBalance,
-          config.savingsBalance,
-          config.safetyBuffer,
-          config.disabledStreamIds ? JSON.stringify(config.disabledStreamIds) : null,
-          config.streamOverrides ? JSON.stringify(config.streamOverrides) : null,
-        ]
-      );
-
-      // Insert all streams
-      for (const stream of config.streams || []) {
-        await client.query(
-          `INSERT INTO streams (id, scenario_id, name, amount, type, frequency, account, target_account, start_date, end_date, day_of_month, anchor_date, category)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            stream.id,
-            config.id,
-            stream.name,
-            stream.amount,
-            stream.type,
-            stream.frequency,
-            stream.account,
-            stream.targetAccount || null,
-            stream.startDate,
-            stream.endDate || null,
-            stream.dayOfMonth ?? null,
-            stream.anchorDate || null,
-            stream.category || null,
-          ]
-        );
-      }
-
-      // Insert all accounts
-      for (const acct of config.accounts || []) {
-        await client.query(
-          `INSERT INTO accounts (id, scenario_id, name, account_type, balance, interest_rate, minimum_payment, credit_limit)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            acct.id,
-            config.id,
-            acct.name,
-            acct.accountType,
-            acct.balance,
-            acct.interestRate ?? null,
-            acct.minimumPayment ?? null,
-            acct.creditLimit ?? null,
-          ]
-        );
-      }
-
+      await upsertScenario(client, config);
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -314,7 +386,7 @@ export function registerRoutes(app: Express): void {
     res.json({ ok: true });
   });
 
-  // ── GET /api/decisions ─────────────────────────────────────
+  // ── GET /api/decisions ───────────────────────────────────
   app.get('/api/decisions', async (_req: Request, res: Response) => {
     const pool = getPool();
     const { rows: decisions } = await pool.query<DecisionRow>(
@@ -337,7 +409,31 @@ export function registerRoutes(app: Express): void {
     res.json(result);
   });
 
-  // ── PUT /api/decisions/:id ─────────────────────────────────
+  // ── GET /api/decisions/scenario/:scenarioId ──────────────
+  app.get('/api/decisions/scenario/:scenarioId', async (req: Request, res: Response) => {
+    const pool = getPool();
+    const { rows: decisions } = await pool.query<DecisionRow>(
+      'SELECT * FROM decisions WHERE baseline_id = $1 ORDER BY created_at',
+      [req.params.scenarioId]
+    );
+
+    if (decisions.length === 0) {
+      res.json([]);
+      return;
+    }
+
+    const result = [];
+    for (const decision of decisions) {
+      const children = await loadDecisionChildren(pool, decision.id);
+      result.push(
+        rowToDecision(decision, children.addStreams, children.removeStreamIds, children.modifyRows)
+      );
+    }
+
+    res.json(result);
+  });
+
+  // ── PUT /api/decisions/:id ───────────────────────────────
   app.put('/api/decisions/:id', async (req: Request, res: Response) => {
     const pool = getPool();
     const config = req.body;
@@ -346,11 +442,7 @@ export function registerRoutes(app: Express): void {
 
     try {
       await client.query('BEGIN');
-
-      // Delete existing decision with this ID (CASCADE removes children)
       await client.query('DELETE FROM decisions WHERE id = $1', [decisionId]);
-
-      // Insert the decision
       await client.query(
         `INSERT INTO decisions (id, name, baseline_id, checking_balance_adjustment, savings_balance_adjustment)
          VALUES ($1, $2, $3, $4, $5)`,
@@ -362,10 +454,7 @@ export function registerRoutes(app: Express): void {
           config.savingsBalanceAdjustment ?? 0,
         ]
       );
-
-      // Insert child records
       await insertDecisionChildren(client, config);
-
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -377,28 +466,27 @@ export function registerRoutes(app: Express): void {
     res.json({ ok: true });
   });
 
-  // ── DELETE /api/decisions/:id ──────────────────────────────
+  // ── DELETE /api/decisions/:id ────────────────────────────
   app.delete('/api/decisions/:id', async (req: Request, res: Response) => {
     const pool = getPool();
     await pool.query('DELETE FROM decisions WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   });
 
-  // ── DELETE /api/data ───────────────────────────────────────
+  // ── DELETE /api/data ─────────────────────────────────────
   app.delete('/api/data', async (_req: Request, res: Response) => {
     const pool = getPool();
-    // Delete decisions first (foreign key on baseline_id → scenarios)
     await pool.query('DELETE FROM decisions');
     await pool.query('DELETE FROM scenarios');
     res.json({ ok: true });
   });
 
-  // ── 404 catch-all for unknown API routes ───────────────────
+  // ── 404 catch-all for unknown API routes ─────────────────
   app.all('/api/{*splat}', (req: Request, res: Response) => {
     res.status(404).json({ error: `Not found: ${req.method} ${req.path}` });
   });
 
-  // ── Error handling middleware ──────────────────────────────
+  // ── Error handling middleware ────────────────────────────
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     console.error(`[API Error] ${req.method} ${req.path}:`, err.message);
     res.status(500).json({ error: err.message });

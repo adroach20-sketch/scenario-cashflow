@@ -54,14 +54,18 @@ Preferred communication style: Simple, everyday language.
 
 - **Server entry:** `server/index.ts` — Express app, initializes DB, registers routes, serves static files in production
 - **Database:** `server/db.ts` — PostgreSQL connection via `pg` Pool, connects using `DATABASE_URL` environment variable, creates tables on startup (idempotent)
-- **Routes:** `server/routes.ts` — REST API matching the ScenarioStore interface:
-  - `GET /api/baseline` — load baseline scenario (returns 204 if none)
-  - `PUT /api/baseline` — save/upsert baseline scenario with embedded streams
-  - `GET /api/decision` — load decision config
-  - `PUT /api/decision` — save/upsert decision config with child records
-  - `DELETE /api/decision` — remove decision
+- **Routes:** `server/routes.ts` — REST API:
+  - `GET /api/scenarios` — list all scenarios (id, name, updatedAt)
+  - `GET /api/scenarios/:id` — load a full scenario with streams/accounts
+  - `PUT /api/scenarios/:id` — upsert a scenario (ON CONFLICT, preserves decisions)
+  - `DELETE /api/scenarios/:id` — delete a scenario and its decisions
+  - `GET /api/baseline` — load most recent scenario (backward compat)
+  - `PUT /api/baseline` — upsert scenario (backward compat)
+  - `GET /api/decisions` — all decisions
+  - `GET /api/decisions/scenario/:scenarioId` — decisions for a specific scenario
+  - `PUT /api/decisions/:id` — upsert a decision
+  - `DELETE /api/decisions/:id` — delete a decision
   - `DELETE /api/data` — clear all data
-  - `GET /api/health` — health check
 - **Express 5 note:** Uses `{*splat}` syntax for catch-all routes (not `*`)
 - **Database schema:** Tables include `scenarios`, `streams`, `accounts`, `decisions`, `decision_add_streams`, `decision_remove_streams`, `decision_modify_streams`
 
@@ -79,6 +83,8 @@ Preferred communication style: Simple, everyday language.
 - **DecisionConfig:** Modifications to a baseline — add streams, remove streams, modify streams, adjust balances
 - **ForecastResult:** Array of DailySnapshots + ForecastMetrics summary
 - **ComparisonMetrics:** Deltas between baseline and decision (min balance delta, buffer days delta, ending balance delta)
+- **Multi-scenario:** Users can save multiple named scenarios and switch between them via a dropdown on the Forecast page. Each scenario has its own accounts, streams, and decisions.
+- **Import as stream:** Users can import a decision from a previous scenario as a net monthly impact stream (calculates the combined monthly effect of added/removed streams and creates a single income or expense stream)
 
 ## External Dependencies
 
