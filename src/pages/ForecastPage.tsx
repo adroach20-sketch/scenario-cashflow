@@ -98,8 +98,6 @@ export function ForecastPage({
       {/* Setup */}
       <section className="section">
         <SetupPanel
-          checkingBalance={baseline.checkingBalance}
-          savingsBalance={baseline.savingsBalance}
           safetyBuffer={baseline.safetyBuffer}
           startDate={baseline.startDate}
           endDate={baseline.endDate}

@@ -1,11 +1,9 @@
 /**
- * Setup panel: starting balances, safety buffer, and forecast date range.
- * This is the first thing the user configures.
+ * Setup panel: safety buffer and forecast date range.
+ * Starting balances are managed on the Accounts page.
  */
 
 interface SetupPanelProps {
-  checkingBalance: number;
-  savingsBalance: number;
   safetyBuffer: number;
   startDate: string;
   endDate: string;
@@ -13,8 +11,6 @@ interface SetupPanelProps {
 }
 
 export function SetupPanel({
-  checkingBalance,
-  savingsBalance,
   safetyBuffer,
   startDate,
   endDate,
@@ -22,36 +18,8 @@ export function SetupPanel({
 }: SetupPanelProps) {
   return (
     <div className="setup-panel">
-      <h2>Starting Balances</h2>
+      <h2>Forecast Settings</h2>
       <div className="setup-grid">
-        <div className="setup-field">
-          <label htmlFor="checking">Checking Account</label>
-          <div className="input-with-prefix">
-            <span className="input-prefix">$</span>
-            <input
-              id="checking"
-              type="number"
-              value={checkingBalance}
-              onChange={(e) => onChange('checkingBalance', Number(e.target.value))}
-              step={100}
-            />
-          </div>
-          <span className="field-hint">Your current checking account balance</span>
-        </div>
-        <div className="setup-field">
-          <label htmlFor="savings">Savings Account</label>
-          <div className="input-with-prefix">
-            <span className="input-prefix">$</span>
-            <input
-              id="savings"
-              type="number"
-              value={savingsBalance}
-              onChange={(e) => onChange('savingsBalance', Number(e.target.value))}
-              step={100}
-            />
-          </div>
-          <span className="field-hint">Your current savings account balance</span>
-        </div>
         <div className="setup-field">
           <label htmlFor="buffer">Safety Buffer</label>
           <div className="input-with-prefix">
@@ -66,10 +34,6 @@ export function SetupPanel({
           </div>
           <span className="field-hint">Minimum checking balance you're comfortable with. Days below this get flagged in the forecast.</span>
         </div>
-      </div>
-
-      <h2>Forecast Range</h2>
-      <div className="setup-grid">
         <div className="setup-field">
           <label htmlFor="start-date">Start Date</label>
           <input
