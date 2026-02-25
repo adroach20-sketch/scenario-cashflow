@@ -19,6 +19,10 @@ import type { Express, Request, Response, NextFunction } from 'express';
 import type { PoolClient } from 'pg';
 import { getPool } from './db.js';
 
+function safeJsonParse<T>(value: string, fallback: T): T {
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
 interface ScenarioRow {
   id: string;
   user_id: string | null;
@@ -109,8 +113,8 @@ function rowToScenario(row: ScenarioRow, streams: StreamRow[], accounts: Account
     safetyBuffer: row.safety_buffer,
     streams: streams.map(rowToStream),
     accounts: accounts.map(rowToAccount),
-    ...(row.disabled_stream_ids && { disabledStreamIds: JSON.parse(row.disabled_stream_ids) }),
-    ...(row.stream_overrides && { streamOverrides: JSON.parse(row.stream_overrides) }),
+    ...(row.disabled_stream_ids && { disabledStreamIds: safeJsonParse(row.disabled_stream_ids, []) }),
+    ...(row.stream_overrides && { streamOverrides: safeJsonParse(row.stream_overrides, {}) }),
   };
 }
 
@@ -314,9 +318,17 @@ export function registerRoutes(app: Express): void {
 
   // ── PUT /api/scenarios/:id ───────────────────────────────
   app.put('/api/scenarios/:id', async (req: Request, res: Response) => {
+    const config = { ...req.body, id: req.params.id };
+
+    // Validate required fields
+    const missing = ['id', 'name', 'startDate', 'endDate'].filter((f) => typeof config[f] !== 'string');
+    const badNums = ['checkingBalance', 'savingsBalance', 'safetyBuffer'].filter((f) => typeof config[f] !== 'number');
+    if (missing.length || badNums.length || !Array.isArray(config.streams)) {
+      res.status(400).json({ error: `Missing or invalid fields: ${[...missing, ...badNums, ...(!Array.isArray(config.streams) ? ['streams'] : [])].join(', ')}` });
+      return;
+    }
+
     const pool = getPool();
-    const config = req.body;
-    config.id = req.params.id;
     const client = await pool.connect();
 
     try {

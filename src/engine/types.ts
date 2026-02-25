@@ -82,7 +82,7 @@ export interface ScenarioConfig {
   savingsBalance: number; // Starting savings account balance
   safetyBuffer: number; // The minimum checking balance you're comfortable with
   streams: CashStream[];
-  accounts: Account[];
+  accounts?: Account[];
   disabledStreamIds?: string[];
   streamOverrides?: Record<string, { amount?: number }>;
 }
