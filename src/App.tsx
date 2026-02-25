@@ -294,6 +294,7 @@ function App() {
           onDeleteDecision={handleDeleteDecision}
           onToggleDecision={handleToggleDecision}
           onStartFresh={handleStartFresh}
+          onNavigate={setActivePage}
         />
       )}
       {activePage === 'worksheet' && (

@@ -27,7 +27,7 @@ Preferred communication style: Simple, everyday language.
   - `ForecastChart` — Recharts visualization
   - `MetricsPanel` — summary metric cards with delta indicators
 - **Pages:** `src/pages/`
-  - `ForecastPage` — chart + setup + decisions
+  - `ForecastPage` — wizard-style 4-step flow: (1) Decision details, (2) Review accounts & settings, (3) Adjust streams, (4) Results (chart + metrics table)
   - `WorksheetPage` (Accounts tab) — accounts management + income/expense/transfer tables with quick-add rows
 
 ### Forecasting Engine (`src/engine/`)
