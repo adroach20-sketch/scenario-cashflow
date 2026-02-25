@@ -33,13 +33,19 @@ export function forecast(config: ScenarioConfig): ForecastResult {
   const endDate = parseISO(config.endDate);
   const totalDays = differenceInCalendarDays(endDate, startDate) + 1;
 
+  const disabledSet = new Set(config.disabledStreamIds ?? []);
+  const overrides = config.streamOverrides ?? {};
+  const activeStreams = config.streams
+    .filter((s) => !disabledSet.has(s.id))
+    .map((s) => (overrides[s.id] ? { ...s, ...overrides[s.id] } : s));
+
   let checking = config.checkingBalance;
   let savings = config.savingsBalance;
   const daily: DailySnapshot[] = [];
 
   for (let i = 0; i < totalDays; i++) {
     const currentDate = addDays(startDate, i);
-    const transactions = getTransactionsForDate(config.streams, currentDate);
+    const transactions = getTransactionsForDate(activeStreams, currentDate);
 
     // Apply each transaction to the appropriate account
     for (const tx of transactions) {

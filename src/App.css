@@ -1022,6 +1022,152 @@ button.danger:disabled:hover {
   padding: 0.25em 0.75em;
 }
 
+/* ===== Stream Toggle List ===== */
+
+.stream-toggle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stl-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.stl-group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 0.25rem;
+}
+
+.stl-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.375rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.stl-row:hover {
+  background: #f9fafb;
+}
+
+.stl-row-disabled {
+  opacity: 0.5;
+}
+
+.stl-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.stl-checkbox {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.stl-name {
+  font-size: 0.875rem;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stl-strikethrough {
+  text-decoration: line-through;
+  color: #9ca3af;
+}
+
+.stl-amount-area {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.stl-amount {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.stl-amount-clickable {
+  cursor: pointer;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  transition: background 0.1s;
+}
+
+.stl-amount-clickable:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.stl-original-amount {
+  text-decoration: line-through;
+  color: #9ca3af;
+  font-weight: 400;
+  margin-right: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.stl-amount-edit {
+  display: flex;
+  align-items: center;
+}
+
+.stl-dollar {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  margin-right: 0.125rem;
+}
+
+.stl-amount-input {
+  width: 80px;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.stl-reset {
+  font-size: 0.6875rem;
+  color: #6b7280;
+  background: none;
+  border: none;
+  padding: 0.125em 0.375em;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.stl-reset:hover {
+  color: #2563eb;
+}
+
+.stl-freq {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  width: 3rem;
+  text-align: right;
+}
+
 .ws-quick-add-row {
   background: #f9fafb;
   border-top: 2px dashed #e5e7eb;

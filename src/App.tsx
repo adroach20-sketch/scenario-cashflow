@@ -139,6 +139,34 @@ function App() {
     );
   }, []);
 
+  // Stream toggle/override handlers for forecast scenarios
+  const handleToggleStream = useCallback((streamId: string) => {
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      const disabled = prev.disabledStreamIds ?? [];
+      const isDisabled = disabled.includes(streamId);
+      return {
+        ...prev,
+        disabledStreamIds: isDisabled
+          ? disabled.filter((id) => id !== streamId)
+          : [...disabled, streamId],
+      };
+    });
+  }, []);
+
+  const handleOverrideStream = useCallback((streamId: string, amount: number | null) => {
+    setBaseline((prev) => {
+      if (!prev) return prev;
+      const overrides = { ...(prev.streamOverrides ?? {}) };
+      if (amount === null) {
+        delete overrides[streamId];
+      } else {
+        overrides[streamId] = { amount };
+      }
+      return { ...prev, streamOverrides: overrides };
+    });
+  }, []);
+
   // Account handlers
   const handleAddAccount = useCallback((account: Account) => {
     setBaseline((prev) => {
@@ -259,9 +287,8 @@ function App() {
           decisionForecasts={decisionForecasts}
           isDemo={isDemo}
           onSetupChange={handleSetupChange}
-          onAddStream={handleAddStream}
-          onUpdateStream={handleUpdateStream}
-          onDeleteStream={handleDeleteStream}
+          onToggleStream={handleToggleStream}
+          onOverrideStream={handleOverrideStream}
           onAddDecision={handleAddDecision}
           onUpdateDecision={handleUpdateDecision}
           onDeleteDecision={handleDeleteDecision}

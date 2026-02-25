@@ -75,7 +75,7 @@ Preferred communication style: Simple, everyday language.
 
 - **Account:** A financial account (checking, savings, credit card, loan, investment) with balance and optional debt fields (interestRate, minimumPayment, creditLimit)
 - **CashStream:** A recurring or one-time money flow (income, expense, or transfer between accounts)
-- **ScenarioConfig:** Starting balances + accounts + array of streams + date range = complete scenario input. Checking/savings balances on ScenarioConfig are synced from the accounts array for backward compatibility with the forecast engine.
+- **ScenarioConfig:** Starting balances + accounts + array of streams + date range = complete scenario input. Checking/savings balances on ScenarioConfig are synced from the accounts array for backward compatibility with the forecast engine. Includes `disabledStreamIds` (streams toggled off) and `streamOverrides` (temporary amount overrides for what-if modeling).
 - **DecisionConfig:** Modifications to a baseline — add streams, remove streams, modify streams, adjust balances
 - **ForecastResult:** Array of DailySnapshots + ForecastMetrics summary
 - **ComparisonMetrics:** Deltas between baseline and decision (min balance delta, buffer days delta, ending balance delta)

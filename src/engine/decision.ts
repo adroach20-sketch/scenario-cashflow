@@ -55,5 +55,7 @@ export function applyDecision(
     safetyBuffer: baseline.safetyBuffer,
     streams,
     accounts: baseline.accounts || [],
+    disabledStreamIds: baseline.disabledStreamIds,
+    streamOverrides: baseline.streamOverrides,
   };
 }

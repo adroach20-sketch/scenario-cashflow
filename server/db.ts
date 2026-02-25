@@ -118,5 +118,9 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // v1.4: Add scenario-level stream toggle/override columns
+  await pool.query(`ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS disabled_stream_ids TEXT`);
+  await pool.query(`ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS stream_overrides TEXT`);
+
   console.log('Database initialized (PostgreSQL)');
 }

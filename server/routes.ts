@@ -24,6 +24,8 @@ interface ScenarioRow {
   checking_balance: number;
   savings_balance: number;
   safety_buffer: number;
+  disabled_stream_ids: string | null;
+  stream_overrides: string | null;
 }
 
 interface StreamRow {
@@ -102,6 +104,8 @@ function rowToScenario(row: ScenarioRow, streams: StreamRow[], accounts: Account
     safetyBuffer: row.safety_buffer,
     streams: streams.map(rowToStream),
     accounts: accounts.map(rowToAccount),
+    ...(row.disabled_stream_ids && { disabledStreamIds: JSON.parse(row.disabled_stream_ids) }),
+    ...(row.stream_overrides && { streamOverrides: JSON.parse(row.stream_overrides) }),
   };
 }
 
@@ -243,8 +247,8 @@ export function registerRoutes(app: Express): void {
 
       // Insert the scenario
       await client.query(
-        `INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO scenarios (id, name, start_date, end_date, checking_balance, savings_balance, safety_buffer, disabled_stream_ids, stream_overrides)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           config.id,
           config.name,
@@ -253,6 +257,8 @@ export function registerRoutes(app: Express): void {
           config.checkingBalance,
           config.savingsBalance,
           config.safetyBuffer,
+          config.disabledStreamIds ? JSON.stringify(config.disabledStreamIds) : null,
+          config.streamOverrides ? JSON.stringify(config.streamOverrides) : null,
         ]
       );
 

@@ -1,15 +1,7 @@
-/**
- * Forecast page — the main view.
- *
- * Displays the chart, metrics, setup panel, streams, and decision panels.
- * This was extracted from App.tsx so App can focus on state management
- * while pages handle layout and rendering.
- */
-
-import type { ScenarioConfig, DecisionConfig, CashStream, ForecastResult } from '../engine';
+import type { ScenarioConfig, DecisionConfig, ForecastResult } from '../engine';
 import type { DecisionForecast } from '../hooks/useForecaster';
 import { SetupPanel } from '../components/SetupPanel';
-import { StreamList } from '../components/StreamList';
+import { StreamToggleList } from '../components/StreamToggleList';
 import { DecisionList } from '../components/DecisionList';
 import { ForecastChart } from '../components/ForecastChart';
 import { MetricsPanel } from '../components/MetricsPanel';
@@ -22,9 +14,8 @@ interface ForecastPageProps {
   decisionForecasts: DecisionForecast[];
   isDemo: boolean;
   onSetupChange: (field: string, value: number | string) => void;
-  onAddStream: (stream: CashStream) => void;
-  onUpdateStream: (updated: CashStream) => void;
-  onDeleteStream: (streamId: string) => void;
+  onToggleStream: (streamId: string) => void;
+  onOverrideStream: (streamId: string, amount: number | null) => void;
   onAddDecision: () => void;
   onUpdateDecision: (updated: DecisionConfig) => void;
   onDeleteDecision: (id: string) => void;
@@ -40,9 +31,8 @@ export function ForecastPage({
   decisionForecasts,
   isDemo,
   onSetupChange,
-  onAddStream,
-  onUpdateStream,
-  onDeleteStream,
+  onToggleStream,
+  onOverrideStream,
   onAddDecision,
   onUpdateDecision,
   onDeleteDecision,
@@ -76,7 +66,6 @@ export function ForecastPage({
         </div>
       )}
 
-      {/* Chart — the centerpiece */}
       <section className="section">
         <ForecastChart
           baselineResult={baselineResult}
@@ -86,7 +75,6 @@ export function ForecastPage({
         />
       </section>
 
-      {/* Metrics */}
       <section className="section">
         <MetricsPanel
           baselineMetrics={baselineResult?.metrics ?? null}
@@ -95,7 +83,6 @@ export function ForecastPage({
         />
       </section>
 
-      {/* Setup */}
       <section className="section">
         <SetupPanel
           safetyBuffer={baseline.safetyBuffer}
@@ -105,17 +92,18 @@ export function ForecastPage({
         />
       </section>
 
-      {/* Baseline streams */}
       <section className="section">
-        <StreamList
+        <h2>Scenario Streams</h2>
+        <p className="subtitle">Toggle streams on/off or click an amount to override it for this forecast</p>
+        <StreamToggleList
           streams={baseline.streams}
-          onAdd={onAddStream}
-          onUpdate={onUpdateStream}
-          onDelete={onDeleteStream}
+          disabledStreamIds={baseline.disabledStreamIds ?? []}
+          streamOverrides={baseline.streamOverrides ?? {}}
+          onToggle={onToggleStream}
+          onOverride={onOverrideStream}
         />
       </section>
 
-      {/* Decision scenarios */}
       <section className="section">
         <h2>Decision Scenarios</h2>
         <DecisionList
