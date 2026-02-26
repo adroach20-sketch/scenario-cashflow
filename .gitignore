@@ -32,3 +32,9 @@ data/
 # Environment
 .env
 .env.local
+
+# Claude Code
+.claude/
+
+# TypeScript build info
+*.tsbuildinfo

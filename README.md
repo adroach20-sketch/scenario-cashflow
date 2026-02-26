@@ -9,12 +9,16 @@ Enter your income, expenses, and starting balances to create a baseline forecast
 **Key features:**
 - Daily cash flow forecasting (not monthly averages)
 - Multiple scenarios with create/switch/delete
-- Guided scenario wizard (decisions → accounts → stream adjustments)
+- Tab-based scenario builder with decision management
 - Side-by-side decision comparison with multi-line chart
-- Accounts worksheet with spreadsheet-style stream management
+- Cash flow worksheet with spreadsheet-style stream management
+- Multiple account types: checking, savings, credit cards, loans, investments
+- Inline calculator in amount fields (e.g., type `1200+350`)
+- Loan/financing calculator — enter principal, rate, and term to auto-calculate payments
 - Import decisions from previous scenarios
 - Fragility metrics: lowest balance, days below safety buffer
 - Real-time chart updates as you edit
+- YNAB-inspired sidebar with account balance overview
 
 ## Running Locally
 
@@ -36,6 +40,6 @@ Builds the React frontend to `dist/` and compiles the server to `dist-server/`. 
 
 ## Tech Stack
 
-- **Frontend:** React + TypeScript (Vite), Recharts, date-fns
+- **Frontend:** React 19 + TypeScript (Vite), Tailwind CSS 4, shadcn/ui, Recharts, date-fns
 - **Backend:** Express.js 5, PostgreSQL (pg)
 - **Engine:** Pure TypeScript forecasting engine (runs in browser, no server dependency)

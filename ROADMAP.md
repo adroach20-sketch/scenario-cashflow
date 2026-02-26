@@ -1,7 +1,7 @@
 # Scenario Cashflow — Roadmap & Decision Log
 
-## Current Version: v1.5
-Scenarios wizard with multi-scenario management. Deployed to Replit.
+## Current Version: v1.6
+UI redesign (Tailwind + shadcn/ui + sidebar) with calculator features. Deployed to Replit.
 
 ---
 
@@ -24,6 +24,29 @@ Scenarios wizard with multi-scenario management. Deployed to Replit.
 - Three-tab navigation: Accounts → Scenarios → Forecast
 - `server/routes.ts` expanded with full scenarios CRUD and per-scenario decision filtering
 - Built in Replit by Andrew
+
+---
+
+## v1.6: UI Redesign + Calculator Features (COMPLETE)
+
+### What was built
+- **Tailwind CSS 4 + shadcn/ui migration** — replaced 1,800+ lines of custom CSS (`App.css`) with Tailwind utility classes and Radix-based component primitives
+- **YNAB-inspired sidebar layout** — indigo sidebar with navigation links and account balances grouped by type (CASH, CREDIT, LOANS, INVESTMENTS), replacing the top navigation bar
+- **Tab rename** — "Accounts" → "Cash Flow" with emoji icons in nav
+- **Flattened scenario workflow** — replaced 3-step wizard with a simpler tab-based interface using `ScenarioTabs`; new scenarios auto-create a first decision so users can start editing immediately
+- **Expanded account types** — `FinancialAccountType` now includes checking, savings, credit-card, loan, and investment
+- **Inline calculator** — amount fields support math expressions (e.g., `1200+350`), evaluated on blur via `CalculatorInput` component
+- **Loan/amortization calculator** — `loan.ts` engine module calculates monthly payments from principal, rate, and term
+- **shadcn component library** — 10 reusable UI components in `src/components/ui/` (button, card, input, label, table, checkbox, dialog, alert-dialog, badge, form-field)
+
+### Architecture changes
+- New engine modules: `calc.ts` (safe expression evaluator), `loan.ts` (amortization calculator)
+- New components: `CalculatorInput`, `AccountsSection`, `ScenarioTabs`
+- New UI library: `src/components/ui/` with shadcn/Radix primitives
+- New utility: `src/lib/utils.ts` with `cn()` class merging helper
+- `AppShell` switched from top-nav to sidebar grid layout (`grid-cols-[240px_1fr]`)
+- Dependencies added: tailwindcss, @radix-ui/*, class-variance-authority, clsx, tailwind-merge, lucide-react, tw-animate-css
+- React upgraded from 18 to 19.2
 
 ---
 
@@ -69,28 +92,6 @@ Scenarios wizard with multi-scenario management. Deployed to Replit.
 
 ---
 
-## v1.4: Accounts Worksheet (COMPLETE)
-
-### What was built
-- **Accounts page** — spreadsheet-style view of all baseline streams, accessible via nav tab
-- **Four categorized tables** — Income, Fixed Expenses, Variable Expenses, Transfers with column headers
-- **Monthly normalization** — every stream shows a monthly equivalent regardless of actual frequency
-- **Summary cards** — monthly income, expenses, transfers, and net cashflow at a glance
-- **Quick-add rows** — inline name/amount/frequency entry at the bottom of each table for fast stream creation
-- **Inline editing** — click Edit to expand StreamEditor within the table row
-- **Click-to-edit balances** — starting checking, savings, and safety buffer are editable inline
-- **Shared state** — uses the same baseline streams and handlers as Forecast page; edits auto-save and affect forecasts immediately
-
-### Architecture changes
-- New page: `WorksheetPage` with `EditableBalance` and `WorksheetTable` sub-components
-- `AppShell` "Accounts" tab now active (was disabled placeholder)
-- `App.tsx` renders `WorksheetPage` when `activePage === 'worksheet'`, passing baseline + stream handlers
-- No new data model — reuses existing `CashStream` and `ScenarioConfig`
-- No backend changes — streams already persisted via existing baseline API
-- Built in Replit directly by Andrew
-
----
-
 ## Future Phases (not yet planned in detail)
 
 ### Phase 2: Balance Tracking
@@ -123,3 +124,8 @@ Scenarios wizard with multi-scenario management. Deployed to Replit.
 | 2026-02-24 | Scenarios page as a wizard | Guided flow reduces overwhelm for new users; wizard steps match mental model of building a scenario |
 | 2026-02-24 | Import decisions from other scenarios | Lets users carry forward past decisions without re-entering; calculates net impact as a stream |
 | 2026-02-24 | Scenario picker with inline rename | Switch/create/delete scenarios without leaving the page; rename in place for quick iteration |
+| 2026-02-25 | Migrate to Tailwind CSS 4 + shadcn/ui | Design consistency via component primitives; faster iteration than custom CSS; Radix handles accessibility |
+| 2026-02-25 | Sidebar navigation over top-nav | YNAB-like familiarity; sidebar has room for account balances and grouping; scales better than tabs |
+| 2026-02-25 | Flatten wizard into tab-based workflow | Reduces clicks; simpler mental model; new scenarios auto-create a decision so users start editing immediately |
+| 2026-02-25 | Expand account types beyond checking/savings | Real-world financial planning needs credit cards, loans, investments; sidebar groups them visually |
+| 2026-02-25 | Add inline calculator and loan calculator | Reduces context-switching (no more external calculator app); loan calc makes financing decisions easier to model |

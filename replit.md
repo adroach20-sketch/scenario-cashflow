@@ -15,6 +15,8 @@ Preferred communication style: Simple, everyday language.
 ### Frontend (React + Vite)
 
 - **Framework:** React 19 with TypeScript, bundled by Vite 7
+- **Styling:** Tailwind CSS 4 + shadcn/ui (Radix UI primitives), class-variance-authority, clsx, tailwind-merge
+- **Icons:** lucide-react
 - **Charting:** Recharts for the daily balance line chart (baseline vs decision overlay)
 - **Date handling:** date-fns throughout
 - **State management:** React useState/useMemo hooks — no external state library
@@ -26,10 +28,13 @@ Preferred communication style: Simple, everyday language.
   - `DecisionPanel` — define modifications to baseline (add/remove/modify streams, adjust balances)
   - `ForecastChart` — Recharts visualization
   - `MetricsPanel` — summary metric cards with delta indicators
-- **Pages:** `src/pages/` — three-tab structure:
-  - `WorksheetPage` (Accounts tab) — accounts management + income/expense/transfer tables with quick-add rows
-  - `ScenariosPage` (Scenarios tab) — 3-step wizard: (1) Decision details, (2) Review accounts & settings, (3) Adjust streams; includes scenario picker, create/delete/switch, import from previous scenario
-  - `ForecastPage` (Forecast tab) — results-only view: scenario bar showing current scenario + decisions, collapsible summary, chart (ForecastChart), and metrics table (MetricsPanel); "Edit Scenario" button navigates back to Scenarios tab
+- **Layout:** YNAB-inspired indigo sidebar (`AppShell`) with navigation links and account balances grouped by type (CASH, CREDIT, LOANS, INVESTMENTS)
+- **UI components:** `src/components/ui/` — shadcn/ui library (button, card, input, label, table, checkbox, dialog, alert-dialog, badge, form-field)
+- **Utilities:** `src/lib/utils.ts` — `cn()` helper for conditional Tailwind class merging
+- **Pages:** `src/pages/` — three views via sidebar navigation:
+  - `WorksheetPage` (Cash Flow) — accounts management + income/expense/transfer tables with quick-add rows, editable balances and dates
+  - `ScenariosPage` (Scenarios) — flat tab-based workflow with `ScenarioTabs` for switching/creating/deleting scenarios, decision list, stream toggle/override, import from previous scenario
+  - `ForecastPage` (Forecast) — results-only view: scenario bar showing current scenario + decisions, collapsible summary, chart (ForecastChart), and metrics table (MetricsPanel); "Edit Scenario" button navigates back to Scenarios
 
 ### Forecasting Engine (`src/engine/`)
 
@@ -41,6 +46,8 @@ Preferred communication style: Simple, everyday language.
   - `schedule.ts` — Date math for recurrence patterns (weekly, biweekly, semimonthly, monthly, one-time)
   - `decision.ts` — Applies a DecisionConfig to a baseline (remove streams, modify streams, add streams, adjust balances)
   - `compare.ts` — Computes delta metrics between baseline and decision forecasts
+  - `calc.ts` — Safe math expression evaluator (powers `CalculatorInput` for inline math in amount fields)
+  - `loan.ts` — Amortization/monthly payment calculator for financing decisions
   - `verify.ts` — Development-only verification script (`npx tsx src/engine/verify.ts`)
 - **Key design:** Engine runs in the browser via the `useForecaster` hook, which memoizes results and recalculates on input changes
 
@@ -98,6 +105,10 @@ Preferred communication style: Simple, everyday language.
 - `express` (v5) — HTTP server
 - `pg` (v8) — PostgreSQL client
 - `react` / `react-dom` (v19) — UI framework
+- `tailwindcss` (v4) — utility-first CSS framework
+- `@radix-ui/*` — accessible UI primitives (via shadcn/ui)
+- `class-variance-authority`, `clsx`, `tailwind-merge` — variant/class utilities for shadcn components
+- `lucide-react` — icon library
 - `recharts` (v3) — charting library
 - `date-fns` (v4) — date manipulation
 - `uuid` (v13) — unique ID generation
