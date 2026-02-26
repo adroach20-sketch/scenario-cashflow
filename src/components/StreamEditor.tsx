@@ -8,11 +8,18 @@
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { CashStream, Frequency, StreamType, AccountType, ExpenseCategory } from '../engine';
+import { calculateMonthlyPayment } from '../engine';
+import { CalculatorInput } from './CalculatorInput';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FormField } from '@/components/ui/form-field';
 
 interface StreamEditorProps {
   stream?: CashStream; // If provided, we're editing. If not, we're adding.
   defaultType?: StreamType; // Pre-set when opened from a section's "Add" button
   defaultCategory?: ExpenseCategory; // Pre-set for "Add Fixed Expense" vs "Add Variable Expense"
+  lockFrequency?: Frequency; // If set, frequency is fixed and the dropdown is disabled
   onSave: (stream: CashStream) => void;
   onCancel: () => void;
 }
@@ -31,12 +38,28 @@ const TYPE_OPTIONS: { value: StreamType; label: string }[] = [
   { value: 'transfer', label: 'Transfer' },
 ];
 
-export function StreamEditor({ stream, defaultType, defaultCategory, onSave, onCancel }: StreamEditorProps) {
+/** Add months to a date string, clamping to end-of-month to avoid overflow
+ *  (e.g. Jan 31 + 1 month → Feb 28, not March 3). */
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const targetMonth = d.getMonth() + months;
+  d.setMonth(targetMonth);
+  // If the day overflowed (e.g. 31 → 3), clamp to last day of target month
+  if (d.getMonth() !== ((targetMonth % 12) + 12) % 12) {
+    d.setDate(0); // backs up to last day of previous month
+  }
+  return d.toISOString().split('T')[0];
+}
+
+const selectClass = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
+const calcInputClass = "flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
+
+export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequency, onSave, onCancel }: StreamEditorProps) {
   const initialType = stream?.type ?? defaultType ?? 'expense';
   const [name, setName] = useState(stream?.name ?? '');
   const [amount, setAmount] = useState(stream?.amount ?? 0);
   const [type, setType] = useState<StreamType>(initialType);
-  const [frequency, setFrequency] = useState<Frequency>(stream?.frequency ?? 'monthly');
+  const [frequency, setFrequency] = useState<Frequency>(lockFrequency ?? stream?.frequency ?? 'monthly');
   const [account, setAccount] = useState<AccountType>(stream?.account ?? 'checking');
   const [targetAccount, setTargetAccount] = useState<AccountType>(stream?.targetAccount ?? 'savings');
   const [startDate, setStartDate] = useState(stream?.startDate ?? '');
@@ -47,22 +70,46 @@ export function StreamEditor({ stream, defaultType, defaultCategory, onSave, onC
     stream?.category ?? defaultCategory ?? (initialType === 'expense' ? 'fixed' : undefined)
   );
 
+  // Financing state
+  const [isFinanced, setIsFinanced] = useState(false);
+  const [loanPrincipal, setLoanPrincipal] = useState(0);
+  const [loanTermMonths, setLoanTermMonths] = useState(36);
+  const [loanAnnualRate, setLoanAnnualRate] = useState(0);
+  const [useCustomPayment, setUseCustomPayment] = useState(false);
+
+  const calculatedPayment = loanPrincipal > 0 && loanTermMonths > 0
+    ? calculateMonthlyPayment(loanPrincipal, loanAnnualRate, loanTermMonths)
+    : 0;
+
   const needsDayOfMonth = frequency === 'monthly';
   const needsAnchorDate = frequency === 'biweekly' || frequency === 'weekly';
   const isTransfer = type === 'transfer';
   const isExpense = type === 'expense';
+  const showFinancing = isExpense && frequency === 'monthly';
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Auto-calculate end date from loan term
+    let computedEndDate = endDate;
+    if (isFinanced && showFinancing && startDate && loanTermMonths > 0) {
+      computedEndDate = addMonths(startDate, loanTermMonths);
+    }
+
+    // Use calculated payment when financing is active and not using custom
+    const finalAmount = (isFinanced && showFinancing && !useCustomPayment && calculatedPayment > 0)
+      ? calculatedPayment
+      : amount;
+
     const cashStream: CashStream = {
       id: stream?.id ?? uuid(),
       name,
-      amount,
+      amount: finalAmount,
       type,
       frequency,
       account,
       startDate,
-      ...(endDate && { endDate }),
+      ...(computedEndDate && { endDate: computedEndDate }),
       ...(needsDayOfMonth && { dayOfMonth }),
       ...(needsAnchorDate && anchorDate && { anchorDate }),
       ...(isTransfer && { targetAccount }),
@@ -72,150 +119,250 @@ export function StreamEditor({ stream, defaultType, defaultCategory, onSave, onC
   }
 
   return (
-    <form className="stream-editor" onSubmit={handleSubmit}>
-      <div className="stream-editor-grid">
-        <div className="setup-field">
-          <label>Name</label>
-          <input
+    <form className="space-y-4" onSubmit={handleSubmit}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+        <FormField label="Name">
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g., Mortgage, Paycheck"
             required
           />
-        </div>
+        </FormField>
 
-        <div className="setup-field">
-          <label>Amount</label>
-          <div className="input-with-prefix">
-            <span className="input-prefix">$</span>
-            <input
-              type="number"
-              value={amount || ''}
-              onChange={(e) => setAmount(Number(e.target.value))}
+        <FormField label="Amount">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+            <CalculatorInput
+              value={amount}
+              onChange={setAmount}
               min={0}
-              step={50}
               required
+              className={`${calcInputClass} pl-7`}
             />
           </div>
-        </div>
+        </FormField>
 
-        <div className="setup-field">
-          <label>Type</label>
-          <select value={type} onChange={(e) => {
-            const newType = e.target.value as StreamType;
-            setType(newType);
-            if (newType === 'expense') {
-              setCategory('fixed');
-            } else {
-              setCategory(undefined);
-            }
-          }}>
+        <FormField label="Type">
+          <select
+            className={selectClass}
+            value={type}
+            onChange={(e) => {
+              const newType = e.target.value as StreamType;
+              setType(newType);
+              if (newType === 'expense') {
+                setCategory('fixed');
+              } else {
+                setCategory(undefined);
+              }
+            }}
+          >
             {TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-        </div>
+        </FormField>
 
         {isExpense && (
-          <div className="setup-field">
-            <label>Category</label>
-            <select value={category ?? 'fixed'} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
+          <FormField label="Category" hint="Fixed = predictable amount, Variable = fluctuates">
+            <select className={selectClass} value={category ?? 'fixed'} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
               <option value="fixed">Fixed</option>
               <option value="variable">Variable</option>
             </select>
-            <span className="field-hint">Fixed = predictable amount, Variable = fluctuates</span>
-          </div>
+          </FormField>
         )}
 
-        <div className="setup-field">
-          <label>Frequency</label>
-          <select value={frequency} onChange={(e) => {
-            const newFreq = e.target.value as Frequency;
-            setFrequency(newFreq);
-            // Reset conditional fields that no longer apply
-            if (newFreq !== 'monthly') setDayOfMonth(1);
-            if (newFreq !== 'biweekly' && newFreq !== 'weekly') setAnchorDate('');
-          }}>
+        <FormField label="Frequency">
+          <select
+            className={selectClass}
+            value={frequency}
+            disabled={!!lockFrequency}
+            onChange={(e) => {
+              const newFreq = e.target.value as Frequency;
+              setFrequency(newFreq);
+              if (newFreq !== 'monthly') setDayOfMonth(1);
+              if (newFreq !== 'biweekly' && newFreq !== 'weekly') setAnchorDate('');
+            }}
+          >
             {FREQUENCY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-        </div>
+        </FormField>
 
-        <div className="setup-field">
-          <label>Account</label>
-          <select value={account} onChange={(e) => setAccount(e.target.value as AccountType)}>
-            <option value="checking">Checking</option>
-            <option value="savings">Savings</option>
-          </select>
-        </div>
-
-        {isTransfer && (
-          <div className="setup-field">
-            <label>Transfer To</label>
-            <select value={targetAccount} onChange={(e) => setTargetAccount(e.target.value as AccountType)}>
-              <option value="savings">Savings</option>
-              <option value="checking">Checking</option>
-            </select>
+        {showFinancing && (
+          <div className="flex items-center gap-2 col-span-full pt-1">
+            <Checkbox
+              id="financed"
+              checked={isFinanced}
+              onCheckedChange={(checked) => {
+                setIsFinanced(checked === true);
+                if (!checked) setUseCustomPayment(false);
+              }}
+            />
+            <label htmlFor="financed" className="text-sm cursor-pointer">
+              This is a financed purchase
+            </label>
           </div>
         )}
 
+        {isFinanced && showFinancing && (
+          <div className="col-span-full rounded-lg border bg-muted/30 p-4 space-y-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+              <FormField label="Total Amount Financed">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <CalculatorInput
+                    value={loanPrincipal}
+                    onChange={(val) => {
+                      setLoanPrincipal(val);
+                      if (!useCustomPayment) {
+                        const pmt = calculateMonthlyPayment(val, loanAnnualRate, loanTermMonths);
+                        setAmount(pmt);
+                      }
+                    }}
+                    min={0}
+                    required
+                    className={`${calcInputClass} pl-7`}
+                  />
+                </div>
+              </FormField>
+
+              <FormField label="Term (months)">
+                <Input
+                  type="number"
+                  value={loanTermMonths}
+                  onChange={(e) => {
+                    const term = Number(e.target.value);
+                    setLoanTermMonths(term);
+                    if (!useCustomPayment && loanPrincipal > 0) {
+                      const pmt = calculateMonthlyPayment(loanPrincipal, loanAnnualRate, term);
+                      setAmount(pmt);
+                    }
+                  }}
+                  min={1}
+                  max={360}
+                />
+              </FormField>
+
+              <FormField label="Interest Rate (% APR)">
+                <Input
+                  type="number"
+                  value={loanAnnualRate}
+                  onChange={(e) => {
+                    const rate = Number(e.target.value);
+                    setLoanAnnualRate(rate);
+                    if (!useCustomPayment && loanPrincipal > 0) {
+                      const pmt = calculateMonthlyPayment(loanPrincipal, rate, loanTermMonths);
+                      setAmount(pmt);
+                    }
+                  }}
+                  min={0}
+                  step={0.1}
+                />
+              </FormField>
+            </div>
+
+            {calculatedPayment > 0 && (
+              <p className="text-sm">
+                Calculated payment: <strong className="tabular-nums">${calculatedPayment.toLocaleString()}/mo</strong>
+                {loanTermMonths > 0 && <span className="text-muted-foreground"> for {loanTermMonths} months</span>}
+              </p>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="custom-payment"
+                checked={useCustomPayment}
+                onCheckedChange={(checked) => {
+                  setUseCustomPayment(checked === true);
+                  if (!checked && calculatedPayment > 0) {
+                    setAmount(calculatedPayment);
+                  }
+                }}
+              />
+              <label htmlFor="custom-payment" className="text-sm cursor-pointer">
+                Use custom monthly payment instead
+              </label>
+            </div>
+          </div>
+        )}
+
+        <FormField label="Account">
+          <select className={selectClass} value={account} onChange={(e) => setAccount(e.target.value as AccountType)}>
+            <option value="checking">Checking</option>
+            <option value="savings">Savings</option>
+          </select>
+        </FormField>
+
+        {isTransfer && (
+          <FormField label="Transfer To">
+            <select className={selectClass} value={targetAccount} onChange={(e) => setTargetAccount(e.target.value as AccountType)}>
+              <option value="savings">Savings</option>
+              <option value="checking">Checking</option>
+            </select>
+          </FormField>
+        )}
+
         {needsDayOfMonth && (
-          <div className="setup-field">
-            <label>Day of Month</label>
-            <input
+          <FormField label="Day of Month">
+            <Input
               type="number"
               value={dayOfMonth}
               onChange={(e) => setDayOfMonth(Number(e.target.value))}
               min={1}
               max={28}
             />
-          </div>
+          </FormField>
         )}
 
         {needsAnchorDate && (
-          <div className="setup-field">
-            <label>Reference Date</label>
-            <input
+          <FormField label="Reference Date" hint="A date this payment is known to occur">
+            <Input
               type="date"
               value={anchorDate}
               onChange={(e) => setAnchorDate(e.target.value)}
             />
-            <span className="field-hint">A date this payment is known to occur</span>
-          </div>
+          </FormField>
         )}
 
-        <div className="setup-field">
-          <label>{frequency === 'one-time' ? 'Date' : 'Start Date'}</label>
-          <input
+        <FormField label={frequency === 'one-time' ? 'Date' : 'Start Date'}>
+          <Input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             required
           />
-        </div>
+        </FormField>
 
-        {frequency !== 'one-time' && (
-          <div className="setup-field">
-            <label>End Date (optional)</label>
-            <input
+        {frequency !== 'one-time' && !(isFinanced && showFinancing) && (
+          <FormField label="End Date (optional)" hint="Leave blank if ongoing">
+            <Input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
-            <span className="field-hint">Leave blank if ongoing</span>
-          </div>
+          </FormField>
+        )}
+
+        {isFinanced && showFinancing && startDate && loanTermMonths > 0 && (
+          <FormField label="Payments End">
+            <p className="text-sm tabular-nums py-2">
+              {new Date(addMonths(startDate, loanTermMonths) + 'T00:00:00').toLocaleDateString()}
+              <span className="text-muted-foreground"> ({loanTermMonths} months from start)</span>
+            </p>
+          </FormField>
         )}
       </div>
 
-      <div className="stream-editor-actions">
-        <button type="submit" className="primary">
+      <div className="flex gap-2">
+        <Button type="submit">
           {stream ? 'Save Changes' : 'Add Stream'}
-        </button>
-        <button type="button" onClick={onCancel}>
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

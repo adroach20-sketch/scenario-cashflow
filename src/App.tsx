@@ -46,6 +46,40 @@ function App() {
 
   const saveInFlight = useRef(false);
 
+  // Immediate save — bypasses the 500ms debounce.
+  // Call before switching/creating/deleting scenarios to avoid data loss.
+  // Returns true if save succeeded (or was no-op), false if it failed.
+  async function flushSave(): Promise<boolean> {
+    if (!baseline) return true;
+
+    // Wait for any in-flight save to finish before starting ours,
+    // so we don't skip saving the latest state.
+    if (saveInFlight.current) {
+      await new Promise<void>((resolve) => {
+        const check = setInterval(() => {
+          if (!saveInFlight.current) { clearInterval(check); resolve(); }
+        }, 50);
+      });
+    }
+
+    saveInFlight.current = true;
+    try {
+      await apiStore.saveScenario(baseline);
+      for (const decision of decisions) {
+        await apiStore.saveDecision(decision);
+      }
+      await refreshScenarioList();
+      setSaveError(null);
+      return true;
+    } catch (err) {
+      console.error('Flush save failed:', err);
+      setSaveError('Could not save before switching. Your recent changes may be lost.');
+      return false;
+    } finally {
+      saveInFlight.current = false;
+    }
+  }
+
   async function loadScenario(id: string) {
     const scenario = await apiStore.getScenario(id);
     if (!scenario) return;
@@ -248,10 +282,14 @@ function App() {
   }, []);
 
   const handleSwitchScenario = useCallback(async (scenarioId: string) => {
+    const saved = await flushSave();
+    if (!saved) return;
     await loadScenario(scenarioId);
-  }, []);
+  }, [baseline, decisions]);
 
   const handleNewScenario = useCallback(async () => {
+    const saved = await flushSave();
+    if (!saved) return;
     const fresh: ScenarioConfig = {
       id: crypto.randomUUID(),
       name: 'New Scenario',
@@ -271,7 +309,8 @@ function App() {
     setBaseline(fresh);
     setDecisions([]);
     setEnabledDecisionIds(new Set());
-  }, []);
+    setActivePage('worksheet');
+  }, [baseline, decisions]);
 
   const handleDeleteScenario = useCallback(async (scenarioId: string) => {
     await apiStore.deleteScenario(scenarioId);
@@ -281,7 +320,7 @@ function App() {
     } else {
       await handleNewScenario();
     }
-  }, [handleNewScenario]);
+  }, [handleNewScenario, baseline, decisions]);
 
   const handleImportDecisionAsStream = useCallback(
     async (scenarioId: string, decisionId: string) => {

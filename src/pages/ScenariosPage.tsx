@@ -106,8 +106,8 @@ export function ScenariosPage({
       )}
 
       <div className="scenario-picker">
-        <div className="scenario-picker-left">
-          <label className="scenario-picker-label">Scenario:</label>
+        <div className="scenario-picker-current">
+          <span className="scenario-picker-editing-label">EDITING:</span>
           <input
             className="scenario-name-input"
             type="text"
@@ -115,27 +115,43 @@ export function ScenariosPage({
             onChange={(e) => onScenarioNameChange(e.target.value)}
           />
         </div>
-        <div className="scenario-picker-right">
+        <div className="scenario-picker-actions">
           {otherScenarios.length > 0 && (
             <select
               className="scenario-select"
               value=""
               onChange={(e) => {
-                if (e.target.value) onSwitchScenario(e.target.value);
+                if (e.target.value) {
+                  const targetName = otherScenarios.find((s) => s.id === e.target.value)?.name ?? 'scenario';
+                  if (confirm(`Switch to "${targetName}"? Your current scenario is saved automatically.`)) {
+                    onSwitchScenario(e.target.value);
+                  }
+                  // Reset the select so it shows the placeholder again
+                  e.target.value = '';
+                }
               }}
             >
-              <option value="">Switch scenario...</option>
+              <option value="">Switch to another scenario...</option>
               {otherScenarios.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
           )}
-          <button className="scenario-new-btn" onClick={onNewScenario}>+ New</button>
+          <button
+            className="scenario-new-btn"
+            onClick={() => {
+              if (confirm('Create a new scenario? Your current scenario is saved automatically.')) {
+                onNewScenario();
+              }
+            }}
+          >
+            + New Scenario
+          </button>
           {scenarioList.length > 1 && (
             <button
               className="scenario-delete-btn"
               onClick={() => {
-                if (confirm(`Delete "${baseline.name}"?`)) {
+                if (confirm(`Delete "${baseline.name}"? This cannot be undone.`)) {
                   onDeleteScenario(baseline.id);
                 }
               }}
@@ -163,13 +179,11 @@ export function ScenariosPage({
         {step === 'decision' && (
           <div className="wizard-panel">
             <h2>What are you considering?</h2>
-            <p className="subtitle">Describe the financial decision — a purchase, investment, or life change</p>
+            <p className="subtitle">Define the new streams that come with this decision</p>
             <div className="wizard-panel-body">
               <DecisionList
                 decisions={decisions}
                 enabledDecisionIds={enabledDecisionIds}
-                baselineStreams={baseline.streams}
-                baselineId={baseline.id}
                 allDecisionIds={allDecisionIds}
                 onAdd={onAddDecision}
                 onUpdate={onUpdateDecision}

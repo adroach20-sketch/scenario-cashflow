@@ -1,14 +1,15 @@
 /**
- * Decision editor: define modifications to the baseline scenario.
+ * Decision editor: define the streams that come with a financial decision.
  *
  * The user can:
  * - Name the decision (e.g., "Home Addition")
- * - Add new expense/income streams
- * - Remove baseline streams (e.g., drop daycare)
- * - Adjust starting balances (e.g., -$10k upfront cost)
+ * - Add new streams (recurring or one-time)
+ * - Add upfront costs as one-time expense streams
+ * - Edit and delete added streams inline
  *
- * Always receives a non-null DecisionConfig. The empty/create state
- * is handled by DecisionList.
+ * Balance adjustments and baseline stream toggles have been removed.
+ * Baseline stream toggling lives in the wizard's "Adjust Streams" step.
+ * Upfront costs are modeled as self-documenting one-time expense streams.
  */
 
 import { useState } from 'react';
@@ -17,10 +18,8 @@ import { StreamEditor } from './StreamEditor';
 
 interface DecisionPanelProps {
   decision: DecisionConfig;
-  baselineStreams: CashStream[];
   onUpdate: (decision: DecisionConfig) => void;
   onDelete: () => void;
-  baselineId: string;
 }
 
 const FREQUENCY_LABELS: Record<string, string> = {
@@ -33,13 +32,14 @@ const FREQUENCY_LABELS: Record<string, string> = {
 
 export function DecisionPanel({
   decision,
-  baselineStreams,
   onUpdate,
   onDelete,
 }: DecisionPanelProps) {
-  const [isAddingStream, setIsAddingStream] = useState(false);
-
-  const removedSet = new Set(decision.removeStreamIds);
+  // Auto-open the add form when the decision has no streams yet
+  const [addMode, setAddMode] = useState<'stream' | 'upfront' | null>(
+    decision.addStreams.length === 0 ? 'stream' : null
+  );
+  const [editingStreamId, setEditingStreamId] = useState<string | null>(null);
 
   function handleNameChange(name: string) {
     onUpdate({ ...decision, name });
@@ -50,26 +50,22 @@ export function DecisionPanel({
       ...decision,
       addStreams: [...decision.addStreams, stream],
     });
-    setIsAddingStream(false);
+    setAddMode(null);
   }
 
-  function handleRemoveAddedStream(streamId: string) {
+  function handleUpdateStream(updated: CashStream) {
+    onUpdate({
+      ...decision,
+      addStreams: decision.addStreams.map((s) => (s.id === updated.id ? updated : s)),
+    });
+    setEditingStreamId(null);
+  }
+
+  function handleRemoveStream(streamId: string) {
     onUpdate({
       ...decision,
       addStreams: decision.addStreams.filter((s) => s.id !== streamId),
     });
-  }
-
-  function handleToggleBaselineStream(streamId: string) {
-    const isCurrentlyRemoved = removedSet.has(streamId);
-    const newRemoved = isCurrentlyRemoved
-      ? decision.removeStreamIds.filter((id) => id !== streamId)
-      : [...decision.removeStreamIds, streamId];
-    onUpdate({ ...decision, removeStreamIds: newRemoved });
-  }
-
-  function handleBalanceAdjustment(field: string, value: number) {
-    onUpdate({ ...decision, [field]: value || 0 });
   }
 
   return (
@@ -89,94 +85,88 @@ export function DecisionPanel({
         </button>
       </div>
 
-      {/* Balance adjustments */}
-      <div className="decision-section">
-        <h3>Upfront Balance Changes</h3>
-        <div className="setup-grid">
-          <div className="setup-field">
-            <label>Checking Adjustment</label>
-            <div className="input-with-prefix">
-              <span className="input-prefix">$</span>
-              <input
-                type="number"
-                value={decision.checkingBalanceAdjustment ?? 0}
-                onChange={(e) => handleBalanceAdjustment('checkingBalanceAdjustment', Number(e.target.value))}
-                step={1000}
-              />
-            </div>
-            <span className="field-hint">Negative for upfront costs (e.g., -10000)</span>
-          </div>
-          <div className="setup-field">
-            <label>Savings Adjustment</label>
-            <div className="input-with-prefix">
-              <span className="input-prefix">$</span>
-              <input
-                type="number"
-                value={decision.savingsBalanceAdjustment ?? 0}
-                onChange={(e) => handleBalanceAdjustment('savingsBalanceAdjustment', Number(e.target.value))}
-                step={1000}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toggle baseline streams on/off */}
-      <div className="decision-section">
-        <h3>Baseline Streams</h3>
-        <p className="field-hint">Uncheck streams you want to remove in this scenario</p>
-        <div className="decision-stream-toggles">
-          {baselineStreams.map((stream) => (
-            <label key={stream.id} className="decision-toggle">
-              <input
-                type="checkbox"
-                checked={!removedSet.has(stream.id)}
-                onChange={() => handleToggleBaselineStream(stream.id)}
-              />
-              <span className={removedSet.has(stream.id) ? 'stream-removed' : ''}>
-                {stream.name} — ${stream.amount.toLocaleString()}/{FREQUENCY_LABELS[stream.frequency]}
-              </span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {/* New streams added by this decision */}
       <div className="decision-section">
         <div className="stream-list-header">
-          <h3>New Streams</h3>
-          <button className="primary" onClick={() => setIsAddingStream(true)}>
-            + Add Stream
-          </button>
+          <h3>What changes with this decision?</h3>
+          {decision.addStreams.length > 0 && !addMode && (
+            <div className="decision-action-buttons">
+              <button className="primary" onClick={() => setAddMode('stream')}>
+                + Add Stream
+              </button>
+              <button onClick={() => setAddMode('upfront')}>
+                + Upfront Cost
+              </button>
+            </div>
+          )}
         </div>
 
-        {isAddingStream && (
+        {/* Add stream / upfront cost form — shown at top */}
+        {addMode === 'stream' && (
           <div className="stream-editor-container">
             <StreamEditor
               onSave={handleAddStream}
-              onCancel={() => setIsAddingStream(false)}
+              onCancel={() => setAddMode(null)}
             />
           </div>
         )}
 
-        {decision.addStreams.map((stream) => (
-          <div key={stream.id} className="stream-row">
-            <div className="stream-info">
-              <span className="stream-name">{stream.name}</span>
-              <span className="stream-details">
-                ${stream.amount.toLocaleString()} · {FREQUENCY_LABELS[stream.frequency]}
-              </span>
+        {addMode === 'upfront' && (
+          <div className="stream-editor-container">
+            <StreamEditor
+              defaultType="expense"
+              defaultCategory="fixed"
+              lockFrequency="one-time"
+              onSave={handleAddStream}
+              onCancel={() => setAddMode(null)}
+            />
+          </div>
+        )}
+
+        {/* Existing streams with inline edit/delete */}
+        {decision.addStreams.map((stream) =>
+          editingStreamId === stream.id ? (
+            <div key={stream.id} className="stream-editor-container">
+              <StreamEditor
+                stream={stream}
+                onSave={handleUpdateStream}
+                onCancel={() => setEditingStreamId(null)}
+              />
             </div>
-            <div className="stream-actions">
-              <button className="danger" onClick={() => handleRemoveAddedStream(stream.id)}>
-                Delete
+          ) : (
+            <div key={stream.id} className="stream-row">
+              <div className="stream-info">
+                <span className="stream-name">{stream.name}</span>
+                <span className="stream-details">
+                  ${stream.amount.toLocaleString()} · {FREQUENCY_LABELS[stream.frequency]}
+                  {stream.endDate && ` · ends ${stream.endDate}`}
+                </span>
+              </div>
+              <div className="stream-actions">
+                <button onClick={() => setEditingStreamId(stream.id)}>Edit</button>
+                <button className="danger" onClick={() => handleRemoveStream(stream.id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* Empty state */}
+        {decision.addStreams.length === 0 && !addMode && (
+          <div className="decision-empty-streams">
+            <p>Add streams to model this decision's financial impact.</p>
+            <p className="field-hint">
+              Tip: Use "Upfront Cost" for one-time expenses like deposits or down payments.
+            </p>
+            <div className="decision-action-buttons">
+              <button className="primary" onClick={() => setAddMode('stream')}>
+                + Add Stream
+              </button>
+              <button onClick={() => setAddMode('upfront')}>
+                + Upfront Cost
               </button>
             </div>
           </div>
-        ))}
-
-        {decision.addStreams.length === 0 && !isAddingStream && (
-          <p className="stream-list-empty">No new streams added to this decision yet.</p>
         )}
       </div>
     </div>

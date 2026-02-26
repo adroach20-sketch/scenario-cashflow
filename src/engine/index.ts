@@ -10,6 +10,7 @@ export { forecast } from './forecast';
 export { applyDecision } from './decision';
 export { compareScenarios } from './compare';
 export { doesStreamFireOnDate } from './schedule';
+export { calculateMonthlyPayment } from './loan';
 
 // All types
 export type {

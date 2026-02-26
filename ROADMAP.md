@@ -1,7 +1,49 @@
 # Scenario Cashflow — Roadmap & Decision Log
 
-## Current Version: v1.4
-Accounts worksheet page with spreadsheet-style stream management. Deployed to Replit.
+## Current Version: v1.5
+Scenarios wizard with multi-scenario management. Deployed to Replit.
+
+---
+
+## v1.5: Scenarios Wizard + Multi-Scenario Management (COMPLETE)
+
+### What was built
+- **Scenarios page** — dedicated tab with a 3-step wizard flow (Decision → Accounts & Settings → Adjust Streams)
+- **Scenario picker** — switch between scenarios, rename inline, create new, delete
+- **Import from previous scenario** — modal to browse other scenarios' decisions and import their net impact as a stream in the current scenario
+- **Stream toggle/override in wizard** — toggle streams on/off and override amounts directly from the wizard's step 3
+- **Save error banner** — visible error state when auto-save fails
+- **Bug fixes** — scenario validation, safe JSON parsing, zero-value input bug, input validation hardening
+
+### Architecture changes
+- New page: `ScenariosPage` with wizard steps and `ImportModal` sub-component
+- New component: `StreamToggleList` for stream toggling/overriding in the wizard
+- `App.tsx` manages `scenarioList: ScenarioSummary[]` state, `loadScenario()` and `refreshScenarioList()` helpers
+- `ScenarioStore` interface expanded: `listScenarios()`, `getScenario(id)`, `saveScenario()`, `deleteScenario()`, `getDecisionsForScenario(scenarioId)`
+- Auto-save now calls `saveScenario()` (not `saveBaseline()`), refreshes scenario list after save
+- Three-tab navigation: Accounts → Scenarios → Forecast
+- `server/routes.ts` expanded with full scenarios CRUD and per-scenario decision filtering
+- Built in Replit by Andrew
+
+---
+
+## v1.4: Accounts Worksheet (COMPLETE)
+
+### What was built
+- **Accounts page** — spreadsheet-style view of all baseline streams, accessible via nav tab
+- **Four categorized tables** — Income, Fixed Expenses, Variable Expenses, Transfers with column headers
+- **Monthly normalization** — every stream shows a monthly equivalent regardless of actual frequency
+- **Summary cards** — monthly income, expenses, transfers, and net cashflow at a glance
+- **Quick-add rows** — inline name/amount/frequency entry at the bottom of each table for fast stream creation
+- **Inline editing** — click Edit to expand StreamEditor within the table row
+- **Click-to-edit balances** — starting checking, savings, and safety buffer are editable inline
+- **Shared state** — uses the same baseline streams and handlers as Forecast page; edits auto-save and affect forecasts immediately
+
+### Architecture changes
+- New page: `WorksheetPage` with `EditableBalance` and `WorksheetTable` sub-components
+- `AppShell` "Accounts" tab now active (was disabled placeholder)
+- No new data model — reuses existing `CashStream` and `ScenarioConfig`
+- No backend changes — streams already persisted via existing baseline API
 
 ---
 
@@ -78,3 +120,6 @@ Accounts worksheet page with spreadsheet-style stream management. Deployed to Re
 | 2026-02-23 | Accounts page reuses CashStream model | No new data model needed — streams are streams whether viewed as a list or spreadsheet |
 | 2026-02-23 | Quick-add rows for fast entry | Reduces friction vs opening a full stream editor for simple items |
 | 2026-02-23 | Local dev with PostgreSQL + process.loadEnvFile() | Node 22 built-in; no dotenv dependency needed |
+| 2026-02-24 | Scenarios page as a wizard | Guided flow reduces overwhelm for new users; wizard steps match mental model of building a scenario |
+| 2026-02-24 | Import decisions from other scenarios | Lets users carry forward past decisions without re-entering; calculates net impact as a stream |
+| 2026-02-24 | Scenario picker with inline rename | Switch/create/delete scenarios without leaving the page; rename in place for quick iteration |

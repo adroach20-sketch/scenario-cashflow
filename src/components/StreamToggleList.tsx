@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CashStream } from '../engine';
+import { CalculatorInput } from './CalculatorInput';
 
 interface StreamToggleListProps {
   streams: CashStream[];
@@ -122,19 +123,6 @@ function StreamToggleRow({ stream, disabled, override, onToggle, onOverride }: S
   const hasOverride = override?.amount != null && override.amount !== stream.amount;
   const displayAmount = hasOverride ? override!.amount! : stream.amount;
 
-  function handleAmountSave() {
-    if (draftAmount !== stream.amount && draftAmount > 0) {
-      onOverride(draftAmount);
-    } else {
-      onOverride(null);
-    }
-    setEditingAmount(false);
-  }
-
-  function handleAmountKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') handleAmountSave();
-    if (e.key === 'Escape') { setDraftAmount(override?.amount ?? stream.amount); setEditingAmount(false); }
-  }
 
   return (
     <div className={`stl-row ${disabled ? 'stl-row-disabled' : ''}`}>
@@ -154,16 +142,21 @@ function StreamToggleRow({ stream, disabled, override, onToggle, onOverride }: S
         {editingAmount && !disabled ? (
           <div className="stl-amount-edit">
             <span className="stl-dollar">$</span>
-            <input
-              type="number"
-              className="stl-amount-input"
+            <CalculatorInput
               value={draftAmount}
-              onChange={(e) => setDraftAmount(Number(e.target.value))}
-              onKeyDown={handleAmountKeyDown}
-              onBlur={handleAmountSave}
+              onChange={(val) => {
+                setDraftAmount(val);
+                // Auto-save when the calculator evaluates
+                if (val !== stream.amount && val > 0) {
+                  onOverride(val);
+                } else {
+                  onOverride(null);
+                }
+                setEditingAmount(false);
+              }}
+              className="stl-amount-input"
               autoFocus
               min={0}
-              step={50}
             />
           </div>
         ) : (

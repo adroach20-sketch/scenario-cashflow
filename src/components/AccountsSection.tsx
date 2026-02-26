@@ -1,6 +1,23 @@
 import { useState } from 'react';
 import { v4 as uuid } from 'uuid';
 import type { Account, FinancialAccountType } from '../engine';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 interface AccountsSectionProps {
   accounts: Account[];
@@ -71,25 +88,27 @@ export function AccountsSection({ accounts, onAdd, onUpdate, onDelete }: Account
   }
 
   return (
-    <div className="accounts-section">
-      <div className="accounts-summary-bar">
-        <div className="accounts-summary-item">
-          <span className="accounts-summary-label">Total Assets</span>
-          <span className="accounts-summary-value ws-income">{formatCurrency(totalAssets)}</span>
+    <div className="space-y-4">
+      {/* Summary Bar */}
+      <div className="flex gap-6 rounded-lg border bg-muted/50 px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Assets</span>
+          <span className="text-sm font-semibold tabular-nums text-income">{formatCurrency(totalAssets)}</span>
         </div>
-        <div className="accounts-summary-item">
-          <span className="accounts-summary-label">Total Debts</span>
-          <span className="accounts-summary-value ws-expense">{formatCurrency(totalDebts)}</span>
+        <div className="flex flex-col">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Debts</span>
+          <span className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(totalDebts)}</span>
         </div>
-        <div className="accounts-summary-item">
-          <span className="accounts-summary-label">Net Worth</span>
-          <span className={`accounts-summary-value ${netWorth >= 0 ? 'ws-positive' : 'ws-negative'}`}>
+        <div className="flex flex-col">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Net Worth</span>
+          <span className={cn("text-sm font-semibold tabular-nums", netWorth >= 0 ? "text-income" : "text-expense")}>
             {netWorth >= 0 ? '' : '-'}{formatCurrency(netWorth)}
           </span>
         </div>
       </div>
 
-      <div className="accounts-grid">
+      {/* Account Cards Grid */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
         {accounts.map((account) =>
           editingId === account.id ? (
             <AccountEditor
@@ -108,18 +127,19 @@ export function AccountsSection({ accounts, onAdd, onUpdate, onDelete }: Account
           )
         )}
 
-        <div className="account-card account-card-add">
-          <div className="account-add-form">
-            <input
+        {/* Add Account Card */}
+        <Card className="border-dashed py-4">
+          <CardContent className="px-4 py-0 space-y-2">
+            <Input
               type="text"
-              className="ws-quick-input"
               placeholder="Account name..."
               value={quickName}
               onChange={(e) => setQuickName(e.target.value)}
               onKeyDown={handleQuickKeyDown}
+              className="h-8"
             />
             <select
-              className="ws-quick-select"
+              className="h-8 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={quickType}
               onChange={(e) => setQuickType(e.target.value as FinancialAccountType)}
             >
@@ -127,32 +147,35 @@ export function AccountsSection({ accounts, onAdd, onUpdate, onDelete }: Account
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <div className="ws-quick-amount">
-              <span className="ws-quick-dollar">$</span>
-              <input
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+              <Input
                 type="number"
-                className="ws-quick-input ws-quick-input-amount"
                 placeholder="0"
                 value={quickBalance}
                 onChange={(e) => setQuickBalance(e.target.value)}
                 onKeyDown={handleQuickKeyDown}
                 min={0}
                 step={100}
+                className="h-8 pl-7 tabular-nums"
               />
             </div>
-            <button
-              className="primary ws-quick-add-btn"
+            <Button
+              size="sm"
+              className="w-full"
               onClick={handleQuickAdd}
               disabled={!quickName.trim() || !quickBalance || isNaN(parseFloat(quickBalance))}
             >
-              Add
-            </button>
-          </div>
-        </div>
+              Add Account
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
+
+/* ---------- Account Card ---------- */
 
 interface AccountCardProps {
   account: Account;
@@ -162,32 +185,42 @@ interface AccountCardProps {
 function AccountCard({ account, onEdit }: AccountCardProps) {
   const debt = isDebt(account.accountType);
   return (
-    <div className={`account-card ${debt ? 'account-card-debt' : 'account-card-asset'}`} onClick={onEdit}>
-      <div className="account-card-header">
-        <span className="account-card-name">{account.name}</span>
-        <span className={`account-card-type-badge ${debt ? 'badge-debt' : 'badge-asset'}`}>
-          {ACCOUNT_TYPE_LABELS[account.accountType]}
-        </span>
-      </div>
-      <div className="account-card-balance">
-        <span className={debt ? 'ws-expense' : 'ws-income'}>
-          {debt ? '-' : ''}{formatCurrency(account.balance)}
-        </span>
-      </div>
-      {debt && (account.interestRate || account.minimumPayment) && (
-        <div className="account-card-debt-details">
-          {account.interestRate != null && (
-            <span className="account-card-detail">{account.interestRate}% APR</span>
-          )}
-          {account.minimumPayment != null && (
-            <span className="account-card-detail">{formatCurrency(account.minimumPayment)}/mo min</span>
-          )}
-        </div>
+    <Card
+      className={cn(
+        "cursor-pointer py-4 transition-all hover:shadow-md group",
+        debt ? "border-l-2 border-l-expense" : "border-l-2 border-l-income"
       )}
-      <span className="account-card-edit-hint">click to edit</span>
-    </div>
+      onClick={onEdit}
+    >
+      <CardContent className="px-4 py-0 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium text-sm truncate">{account.name}</span>
+          <Badge variant={debt ? "debt" : "asset"}>
+            {ACCOUNT_TYPE_LABELS[account.accountType]}
+          </Badge>
+        </div>
+        <p className={cn("text-xl font-bold tabular-nums", debt ? "text-expense" : "text-income")}>
+          {debt ? '-' : ''}{formatCurrency(account.balance)}
+        </p>
+        {debt && (account.interestRate || account.minimumPayment) && (
+          <div className="flex gap-3 text-xs text-muted-foreground">
+            {account.interestRate != null && (
+              <span>{account.interestRate}% APR</span>
+            )}
+            {account.minimumPayment != null && (
+              <span>{formatCurrency(account.minimumPayment)}/mo min</span>
+            )}
+          </div>
+        )}
+        <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+          click to edit
+        </span>
+      </CardContent>
+    </Card>
   );
 }
+
+/* ---------- Account Editor ---------- */
 
 interface AccountEditorProps {
   account: Account;
@@ -224,44 +257,66 @@ function AccountEditor({ account, onSave, onCancel, onDelete }: AccountEditorPro
   }
 
   return (
-    <div className="account-card account-card-editing">
-      <div className="account-edit-field">
-        <label>Name</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKeyDown} autoFocus />
-      </div>
-      <div className="account-edit-field">
-        <label>Type</label>
-        <select value={accountType} onChange={(e) => setAccountType(e.target.value as FinancialAccountType)}>
-          {ACCOUNT_TYPE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
-      </div>
-      <div className="account-edit-field">
-        <label>Balance</label>
-        <input type="number" value={balance} onChange={(e) => setBalance(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={100} />
-      </div>
-      {debt && (
-        <>
-          <div className="account-edit-field">
-            <label>Interest Rate (%)</label>
-            <input type="number" value={interestRate || ''} onChange={(e) => setInterestRate(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={0.1} placeholder="e.g. 22.9" />
-          </div>
-          <div className="account-edit-field">
-            <label>Min. Payment</label>
-            <input type="number" value={minimumPayment || ''} onChange={(e) => setMinimumPayment(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={10} placeholder="e.g. 85" />
-          </div>
-          <div className="account-edit-field">
-            <label>Credit Limit</label>
-            <input type="number" value={creditLimit || ''} onChange={(e) => setCreditLimit(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={100} placeholder="e.g. 10000" />
-          </div>
-        </>
-      )}
-      <div className="account-edit-actions">
-        <button className="primary" onClick={handleSave}>Save</button>
-        <button onClick={onCancel}>Cancel</button>
-        <button className="danger" onClick={onDelete}>Delete</button>
-      </div>
-    </div>
+    <Card className="py-4 ring-2 ring-ring">
+      <CardContent className="px-4 py-0 space-y-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={handleKeyDown} autoFocus className="h-8" />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Type</Label>
+          <select
+            className="h-8 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value as FinancialAccountType)}
+          >
+            {ACCOUNT_TYPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Balance</Label>
+          <Input type="number" value={balance} onChange={(e) => setBalance(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={100} className="h-8 tabular-nums" />
+        </div>
+        {debt && (
+          <>
+            <div className="space-y-1">
+              <Label className="text-xs">Interest Rate (%)</Label>
+              <Input type="number" value={interestRate || ''} onChange={(e) => setInterestRate(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={0.1} placeholder="e.g. 22.9" className="h-8" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Min. Payment</Label>
+              <Input type="number" value={minimumPayment || ''} onChange={(e) => setMinimumPayment(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={10} placeholder="e.g. 85" className="h-8 tabular-nums" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Credit Limit</Label>
+              <Input type="number" value={creditLimit || ''} onChange={(e) => setCreditLimit(Number(e.target.value))} onKeyDown={handleKeyDown} min={0} step={100} placeholder="e.g. 10000" className="h-8 tabular-nums" />
+            </div>
+          </>
+        )}
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" onClick={handleSave}>Save</Button>
+          <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive">Delete</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete &ldquo;{account.name}&rdquo;?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove this account and its balance from your financial picture. This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={onDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

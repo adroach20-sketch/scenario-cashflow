@@ -4,6 +4,30 @@ import { format } from 'date-fns';
 import type { ScenarioConfig, CashStream, StreamType, ExpenseCategory, Frequency, Account } from '../engine';
 import { StreamEditor } from '../components/StreamEditor';
 import { AccountsSection } from '../components/AccountsSection';
+import { CalculatorInput } from '../components/CalculatorInput';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface WorksheetPageProps {
   baseline: ScenarioConfig;
@@ -57,6 +81,7 @@ function todayISO(): string {
 
 export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddStream, onSetupChange, onAddAccount, onUpdateAccount, onDeleteAccount }: WorksheetPageProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [addingStreamConfig, setAddingStreamConfig] = useState<{ type: StreamType; category?: ExpenseCategory } | null>(null);
 
   const { incomeStreams, fixedExpenses, variableExpenses, transferStreams } = useMemo(() => {
     const streams = baseline.streams;
@@ -78,43 +103,69 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
     return { totalIncome, totalFixed, totalVariable, totalTransfers, totalExpenses, netCashflow };
   }, [incomeStreams, fixedExpenses, variableExpenses, transferStreams]);
 
-  function handleSaveEdit(stream: CashStream) {
-    onUpdateStream(stream);
+  // Dialog state
+  const editingStream = editingId ? baseline.streams.find((s) => s.id === editingId) ?? null : null;
+  const isDialogOpen = editingStream !== null || addingStreamConfig !== null;
+
+  function handleDialogClose() {
     setEditingId(null);
+    setAddingStreamConfig(null);
+  }
+
+  function handleDialogSave(stream: CashStream) {
+    if (editingId) {
+      onUpdateStream(stream);
+    } else {
+      onAddStream(stream);
+    }
+    handleDialogClose();
+  }
+
+  function dialogTitle(): string {
+    if (editingStream) return `Edit "${editingStream.name}"`;
+    if (!addingStreamConfig) return 'Stream';
+    const { type, category } = addingStreamConfig;
+    if (type === 'income') return 'Add Income';
+    if (type === 'transfer') return 'Add Transfer';
+    if (category === 'variable') return 'Add Variable Expense';
+    return 'Add Fixed Expense';
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div>
-          <h1>Accounts</h1>
-          <p className="subtitle">Your complete financial picture at a glance</p>
-        </div>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-bold tracking-tight">Cash Flow</h1>
+        <p className="text-sm text-muted-foreground">Your income, expenses, and accounts</p>
       </header>
 
-      <div className="worksheet-summary">
-        <div className="worksheet-summary-card">
-          <span className="worksheet-summary-label">Monthly Income</span>
-          <span className="worksheet-summary-value ws-income">{formatCurrency(totals.totalIncome)}</span>
-        </div>
-        <div className="worksheet-summary-card">
-          <span className="worksheet-summary-label">Monthly Expenses</span>
-          <span className="worksheet-summary-value ws-expense">{formatCurrency(totals.totalExpenses)}</span>
-        </div>
-        <div className="worksheet-summary-card">
-          <span className="worksheet-summary-label">Transfers</span>
-          <span className="worksheet-summary-value ws-transfer">{formatCurrency(totals.totalTransfers)}</span>
-        </div>
-        <div className="worksheet-summary-card">
-          <span className="worksheet-summary-label">Net Cashflow</span>
-          <span className={`worksheet-summary-value ${totals.netCashflow >= 0 ? 'ws-positive' : 'ws-negative'}`}>
-            {totals.netCashflow >= 0 ? '+' : ''}{formatCurrency(totals.netCashflow)}
-          </span>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <SummaryCard label="Monthly Income" value={formatCurrency(totals.totalIncome)} colorClass="text-income" />
+        <SummaryCard label="Monthly Expenses" value={formatCurrency(totals.totalExpenses)} colorClass="text-expense" />
+        <SummaryCard label="Transfers" value={formatCurrency(totals.totalTransfers)} colorClass="text-transfer" />
+        <SummaryCard
+          label="Net Cashflow"
+          value={`${totals.netCashflow >= 0 ? '+' : ''}${formatCurrency(totals.netCashflow)}`}
+          colorClass={totals.netCashflow >= 0 ? 'text-income' : 'text-expense'}
+          className={cn(
+            "border-l-4",
+            totals.netCashflow >= 0 ? "border-l-income bg-income/5" : "border-l-expense bg-expense/5"
+          )}
+        />
+      </div>
+
+      {/* Setup Strip */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 rounded-lg border bg-muted/50 p-4">
+        <EditableBalance label="Safety Buffer" value={baseline.safetyBuffer} field="safetyBuffer" onChange={onSetupChange} />
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Forecast Period</span>
+          <span className="text-sm tabular-nums">{baseline.startDate} to {baseline.endDate}</span>
         </div>
       </div>
 
-      <section className="section">
-        <h2>Accounts</h2>
+      {/* Accounts */}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Accounts</h2>
         <AccountsSection
           accounts={baseline.accounts || []}
           onAdd={onAddAccount}
@@ -123,86 +174,107 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
         />
       </section>
 
-      <div className="worksheet-balances">
-        <EditableBalance label="Safety Buffer" value={baseline.safetyBuffer} field="safetyBuffer" onChange={onSetupChange} />
-        <div className="worksheet-balance-item">
-          <span className="worksheet-balance-label">Forecast Period</span>
-          <span className="worksheet-balance-value ws-date">{baseline.startDate} to {baseline.endDate}</span>
-        </div>
-      </div>
+      {/* Stream Tables */}
+      <WorksheetTable
+        title="Income"
+        streams={incomeStreams}
+        subtotal={totals.totalIncome}
+        colorClass="text-income"
+        defaultType="income"
+        onEdit={setEditingId}
+        onDelete={onDeleteStream}
+        onAdd={onAddStream}
+        onAddFull={() => setAddingStreamConfig({ type: 'income' })}
+        startDate={baseline.startDate}
+        headerClassName="bg-income/5"
+        emptyHint="No income streams yet. Add your paycheck or other income below."
+      />
 
-      <section className="section">
-        <WorksheetTable
-          title="Income"
-          streams={incomeStreams}
-          subtotal={totals.totalIncome}
-          colorClass="ws-income"
-          defaultType="income"
-          editingId={editingId}
-          onEdit={setEditingId}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingId(null)}
-          onDelete={onDeleteStream}
-          onAdd={onAddStream}
-          startDate={baseline.startDate}
-        />
-      </section>
+      <WorksheetTable
+        title="Fixed Expenses"
+        streams={fixedExpenses}
+        subtotal={totals.totalFixed}
+        colorClass="text-expense"
+        defaultType="expense"
+        defaultCategory="fixed"
+        onEdit={setEditingId}
+        onDelete={onDeleteStream}
+        onAdd={onAddStream}
+        onAddFull={() => setAddingStreamConfig({ type: 'expense', category: 'fixed' })}
+        startDate={baseline.startDate}
+        headerClassName="bg-expense/5"
+        emptyHint="No fixed expenses yet. Add recurring bills like rent or insurance."
+      />
 
-      <section className="section">
-        <WorksheetTable
-          title="Fixed Expenses"
-          streams={fixedExpenses}
-          subtotal={totals.totalFixed}
-          colorClass="ws-expense"
-          defaultType="expense"
-          defaultCategory="fixed"
-          editingId={editingId}
-          onEdit={setEditingId}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingId(null)}
-          onDelete={onDeleteStream}
-          onAdd={onAddStream}
-          startDate={baseline.startDate}
-        />
-      </section>
+      <WorksheetTable
+        title="Variable Expenses"
+        streams={variableExpenses}
+        subtotal={totals.totalVariable}
+        colorClass="text-expense"
+        defaultType="expense"
+        defaultCategory="variable"
+        onEdit={setEditingId}
+        onDelete={onDeleteStream}
+        onAdd={onAddStream}
+        onAddFull={() => setAddingStreamConfig({ type: 'expense', category: 'variable' })}
+        startDate={baseline.startDate}
+        headerClassName="bg-expense/5"
+        emptyHint="No variable expenses yet. Add things like groceries or entertainment."
+      />
 
-      <section className="section">
-        <WorksheetTable
-          title="Variable Expenses"
-          streams={variableExpenses}
-          subtotal={totals.totalVariable}
-          colorClass="ws-expense"
-          defaultType="expense"
-          defaultCategory="variable"
-          editingId={editingId}
-          onEdit={setEditingId}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingId(null)}
-          onDelete={onDeleteStream}
-          onAdd={onAddStream}
-          startDate={baseline.startDate}
-        />
-      </section>
+      <WorksheetTable
+        title="Transfers"
+        streams={transferStreams}
+        subtotal={totals.totalTransfers}
+        colorClass="text-transfer"
+        defaultType="transfer"
+        onEdit={setEditingId}
+        onDelete={onDeleteStream}
+        onAdd={onAddStream}
+        onAddFull={() => setAddingStreamConfig({ type: 'transfer' })}
+        startDate={baseline.startDate}
+        headerClassName="bg-transfer/5"
+        emptyHint="No transfers set up. Add savings or investment contributions."
+      />
 
-      <section className="section">
-        <WorksheetTable
-          title="Transfers"
-          streams={transferStreams}
-          subtotal={totals.totalTransfers}
-          colorClass="ws-transfer"
-          defaultType="transfer"
-          editingId={editingId}
-          onEdit={setEditingId}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingId(null)}
-          onDelete={onDeleteStream}
-          onAdd={onAddStream}
-          startDate={baseline.startDate}
-        />
-      </section>
+      {/* Stream Editor Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) handleDialogClose(); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{dialogTitle()}</DialogTitle>
+            <DialogDescription>
+              {editingStream ? 'Update the details for this stream.' : 'Fill in the details for your new stream.'}
+            </DialogDescription>
+          </DialogHeader>
+          {isDialogOpen && (
+            <StreamEditor
+              stream={editingStream ?? undefined}
+              defaultType={addingStreamConfig?.type}
+              defaultCategory={addingStreamConfig?.category}
+              onSave={handleDialogSave}
+              onCancel={handleDialogClose}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+/* ---------- Summary Card ---------- */
+
+function SummaryCard({ label, value, colorClass, className }: { label: string; value: string; colorClass: string; className?: string }) {
+  return (
+    <Card className={cn("py-4", className)}>
+      <CardContent className="px-4 py-0">
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className={cn("text-xl font-bold tabular-nums", colorClass)}>{value}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ---------- Editable Balance ---------- */
 
 interface EditableBalanceProps {
   label: string;
@@ -227,33 +299,38 @@ function EditableBalance({ label, value, field, onChange }: EditableBalanceProps
 
   if (editing) {
     return (
-      <div className="worksheet-balance-item">
-        <span className="worksheet-balance-label">{label}</span>
-        <div className="ws-inline-edit">
-          <input
-            type="number"
-            value={draft}
-            onChange={(e) => setDraft(Number(e.target.value))}
-            onKeyDown={handleKeyDown}
-            onBlur={handleSave}
-            autoFocus
-            className="ws-inline-input"
-          />
-        </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <Input
+          type="number"
+          value={draft}
+          onChange={(e) => setDraft(Number(e.target.value))}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          autoFocus
+          className="h-8 w-32 tabular-nums"
+        />
       </div>
     );
   }
 
   return (
-    <div className="worksheet-balance-item ws-clickable" onClick={() => { setDraft(value); setEditing(true); }}>
-      <span className="worksheet-balance-label">{label}</span>
-      <span className="worksheet-balance-value">
+    <div
+      className="flex flex-col gap-1 cursor-pointer group"
+      onClick={() => { setDraft(value); setEditing(true); }}
+    >
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-sm tabular-nums">
         {formatCurrency(value)}
-        <span className="ws-edit-hint">click to edit</span>
+        <span className="ml-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+          click to edit
+        </span>
       </span>
     </div>
   );
 }
+
+/* ---------- WorksheetTable ---------- */
 
 interface WorksheetTableProps {
   title: string;
@@ -262,13 +339,13 @@ interface WorksheetTableProps {
   colorClass: string;
   defaultType: StreamType;
   defaultCategory?: ExpenseCategory;
-  editingId: string | null;
   onEdit: (id: string) => void;
-  onSaveEdit: (stream: CashStream) => void;
-  onCancelEdit: () => void;
   onDelete: (id: string) => void;
   onAdd: (stream: CashStream) => void;
+  onAddFull?: () => void;
   startDate: string;
+  headerClassName?: string;
+  emptyHint?: string;
 }
 
 function WorksheetTable({
@@ -278,21 +355,21 @@ function WorksheetTable({
   colorClass,
   defaultType,
   defaultCategory,
-  editingId,
   onEdit,
-  onSaveEdit,
-  onCancelEdit,
   onDelete,
   onAdd,
+  onAddFull,
   startDate,
+  headerClassName,
+  emptyHint,
 }: WorksheetTableProps) {
   const [quickName, setQuickName] = useState('');
-  const [quickAmount, setQuickAmount] = useState('');
+  const [quickAmount, setQuickAmount] = useState(0);
   const [quickFrequency, setQuickFrequency] = useState<Frequency>('monthly');
 
   function handleQuickAdd() {
     const name = quickName.trim();
-    const amount = parseFloat(quickAmount);
+    const amount = quickAmount;
     if (!name || !amount || amount <= 0) return;
 
     const today = todayISO();
@@ -313,7 +390,7 @@ function WorksheetTable({
     };
     onAdd(stream);
     setQuickName('');
-    setQuickAmount('');
+    setQuickAmount(0);
     setQuickFrequency('monthly');
   }
 
@@ -325,85 +402,101 @@ function WorksheetTable({
   }
 
   return (
-    <div className="worksheet-table-container">
-      <div className="worksheet-table-header">
-        <h2>{title}</h2>
-        <span className={`worksheet-table-subtotal ${colorClass}`}>
-          ~{formatCurrency(subtotal)}/mo
-        </span>
+    <Card className="py-0 overflow-hidden">
+      <div className={cn("flex items-center justify-between px-4 py-3 border-b bg-muted/30", headerClassName)}>
+        <h2 className="text-base font-semibold">{title}</h2>
+        <div className="flex items-center gap-3">
+          {onAddFull && (
+            <Button variant="ghost" size="xs" onClick={onAddFull}>+ Add</Button>
+          )}
+          <span className={cn("text-sm font-semibold tabular-nums", colorClass)}>
+            ~{formatCurrency(subtotal)}/mo
+          </span>
+        </div>
       </div>
 
-      <table className="worksheet-table">
-        <thead>
-          <tr>
-            <th className="ws-th">Name</th>
-            <th className="ws-th ws-th-right">Amount</th>
-            <th className="ws-th">Frequency</th>
-            <th className="ws-th">Account</th>
-            <th className="ws-th ws-th-right">Monthly Est.</th>
-            <th className="ws-th ws-th-actions">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {streams.map((stream) =>
-            editingId === stream.id ? (
-              <tr key={stream.id}>
-                <td colSpan={6} className="ws-td-editor">
-                  <StreamEditor
-                    stream={stream}
-                    onSave={onSaveEdit}
-                    onCancel={onCancelEdit}
-                  />
-                </td>
-              </tr>
-            ) : (
-              <tr key={stream.id} className="ws-tr">
-                <td className="ws-td ws-td-name">{stream.name}</td>
-                <td className="ws-td ws-td-right">{formatCurrency(stream.amount)}</td>
-                <td className="ws-td">{FREQUENCY_LABELS[stream.frequency]}</td>
-                <td className="ws-td">
-                  {ACCOUNT_LABELS[stream.account]}
-                  {stream.targetAccount && ` → ${ACCOUNT_LABELS[stream.targetAccount]}`}
-                </td>
-                <td className="ws-td ws-td-right">
-                  {stream.frequency === 'one-time' ? '—' : formatCurrency(monthlyEquivalent(stream))}
-                </td>
-                <td className="ws-td ws-td-actions-cell">
-                  <button onClick={() => onEdit(stream.id)}>Edit</button>
-                  <button className="danger" onClick={() => onDelete(stream.id)}>Delete</button>
-                </td>
-              </tr>
-            )
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Name</TableHead>
+            <TableHead className="text-right">Amount</TableHead>
+            <TableHead>Frequency</TableHead>
+            <TableHead>Account</TableHead>
+            <TableHead className="text-right">Monthly Est.</TableHead>
+            <TableHead className="text-right w-[140px]">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {streams.length === 0 && emptyHint && (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                {emptyHint}
+              </TableCell>
+            </TableRow>
           )}
-          <tr className="ws-quick-add-row">
-            <td className="ws-td">
-              <input
+          {streams.map((stream) => (
+            <TableRow key={stream.id} className="group">
+              <TableCell className="font-medium">{stream.name}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatCurrency(stream.amount)}</TableCell>
+              <TableCell>{FREQUENCY_LABELS[stream.frequency]}</TableCell>
+              <TableCell>
+                {ACCOUNT_LABELS[stream.account]}
+                {stream.targetAccount && ` → ${ACCOUNT_LABELS[stream.targetAccount]}`}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {stream.frequency === 'one-time' ? '—' : formatCurrency(monthlyEquivalent(stream))}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="xs" onClick={() => onEdit(stream.id)}>Edit</Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="xs" className="text-destructive hover:text-destructive">Delete</Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete &ldquo;{stream.name}&rdquo;?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently remove this stream from your cash flow. This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={() => onDelete(stream.id)}>Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          {/* Quick-add row */}
+          <TableRow className="hover:bg-transparent bg-muted/40 border-t-2 border-dashed">
+            <TableCell>
+              <Input
                 type="text"
-                className="ws-quick-input"
                 placeholder={`New ${title.toLowerCase()}...`}
                 value={quickName}
                 onChange={(e) => setQuickName(e.target.value)}
                 onKeyDown={handleQuickKeyDown}
+                className="h-8"
               />
-            </td>
-            <td className="ws-td ws-td-right">
-              <div className="ws-quick-amount">
-                <span className="ws-quick-dollar">$</span>
-                <input
-                  type="number"
-                  className="ws-quick-input ws-quick-input-amount"
-                  placeholder="0"
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                <CalculatorInput
                   value={quickAmount}
-                  onChange={(e) => setQuickAmount(e.target.value)}
-                  onKeyDown={handleQuickKeyDown}
+                  onChange={setQuickAmount}
                   min={0}
-                  step={50}
+                  placeholder="0"
+                  className="flex h-8 w-full min-w-0 rounded-md border border-input bg-transparent pl-7 pr-3 py-1 text-sm tabular-nums shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
                 />
               </div>
-            </td>
-            <td className="ws-td">
+            </TableCell>
+            <TableCell>
               <select
-                className="ws-quick-select"
+                className="h-8 w-full rounded-md border border-input bg-transparent px-3 text-sm"
                 value={quickFrequency}
                 onChange={(e) => setQuickFrequency(e.target.value as Frequency)}
               >
@@ -411,21 +504,21 @@ function WorksheetTable({
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-            </td>
-            <td className="ws-td"></td>
-            <td className="ws-td"></td>
-            <td className="ws-td ws-td-actions-cell">
-              <button
-                className="primary ws-quick-add-btn"
+            </TableCell>
+            <TableCell></TableCell>
+            <TableCell></TableCell>
+            <TableCell className="text-right">
+              <Button
+                size="sm"
                 onClick={handleQuickAdd}
-                disabled={!quickName.trim() || !quickAmount || parseFloat(quickAmount) <= 0}
+                disabled={!quickName.trim() || !quickAmount || quickAmount <= 0}
               >
                 Add
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              </Button>
+            </TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </Card>
   );
 }

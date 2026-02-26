@@ -6,19 +6,16 @@
  * - Name
  * - Enabled/disabled toggle
  * - Expand to show the full DecisionPanel editor
- * - Delete button
  */
 
 import { useState } from 'react';
-import type { DecisionConfig, CashStream } from '../engine';
+import type { DecisionConfig } from '../engine';
 import { DecisionPanel } from './DecisionPanel';
 import { DECISION_COLORS } from './ForecastChart';
 
 interface DecisionListProps {
   decisions: DecisionConfig[];
   enabledDecisionIds: Set<string>;
-  baselineStreams: CashStream[];
-  baselineId: string;
   allDecisionIds: string[];
   onAdd: () => void;
   onUpdate: (updated: DecisionConfig) => void;
@@ -29,8 +26,6 @@ interface DecisionListProps {
 export function DecisionList({
   decisions,
   enabledDecisionIds,
-  baselineStreams,
-  baselineId,
   allDecisionIds,
   onAdd,
   onUpdate,
@@ -65,6 +60,7 @@ export function DecisionList({
         const isExpanded = expandedId === decision.id;
         const isEnabled = enabledDecisionIds.has(decision.id);
         const color = colorFor(decision.id);
+        const streamCount = decision.addStreams.length;
 
         return (
           <div key={decision.id} className="decision-card">
@@ -93,11 +89,9 @@ export function DecisionList({
               </div>
               <div className="decision-card-right">
                 <span className="decision-card-summary">
-                  {decision.removeStreamIds.length > 0 &&
-                    `${decision.removeStreamIds.length} removed`}
-                  {decision.removeStreamIds.length > 0 && decision.addStreams.length > 0 && ' · '}
-                  {decision.addStreams.length > 0 &&
-                    `${decision.addStreams.length} added`}
+                  {streamCount > 0
+                    ? `${streamCount} stream${streamCount > 1 ? 's' : ''}`
+                    : 'No streams yet'}
                 </span>
               </div>
             </div>
@@ -105,10 +99,8 @@ export function DecisionList({
               <div className="decision-card-body">
                 <DecisionPanel
                   decision={decision}
-                  baselineStreams={baselineStreams}
                   onUpdate={onUpdate}
                   onDelete={() => onDelete(decision.id)}
-                  baselineId={baselineId}
                 />
               </div>
             )}

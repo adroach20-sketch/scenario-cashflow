@@ -5,8 +5,8 @@ A full-stack daily cashflow forecaster that compares a baseline scenario against
 
 ## Status & Roadmap
 See `ROADMAP.md` for current version, planned phases, and decision log.
-- **Current:** v1.3 (multi-scenario support + navigation shell)
-- **Next:** balance tracking worksheet (Phase 2)
+- **Current:** v1.5 (scenarios wizard + multi-scenario management)
+- **Next:** balance tracking (Phase 2)
 - **Future:** transaction importing (Phase 3)
 
 ## Tech Stack
@@ -24,7 +24,7 @@ See `ROADMAP.md` for current version, planned phases, and decision log.
 ## Server Structure
 - `server/index.ts` — Express entry point, serves API + static files in prod
 - `server/db.ts` — PostgreSQL database init, schema creation (connects via DATABASE_URL)
-- `server/routes.ts` — API route handlers (GET/PUT baseline, GET/PUT/DELETE decisions/:id, DELETE data)
+- `server/routes.ts` — API route handlers (scenarios CRUD, per-scenario decisions, legacy baseline endpoints)
 - Database: PostgreSQL via `DATABASE_URL` env var (provided by Replit)
 
 ## Code Style
@@ -38,6 +38,20 @@ See `ROADMAP.md` for current version, planned phases, and decision log.
 - **ScenarioConfig**: Starting balances + streams = a complete scenario
 - **DecisionConfig**: Modifications to a baseline (add/remove/change streams)
 - **ForecastResult**: Daily snapshots + summary metrics
+- **ScenarioSummary**: Lightweight scenario metadata (id, name, updatedAt) for listing/switching
+
+## App Structure (Three Tabs)
+- **Accounts** (`WorksheetPage`) — spreadsheet-style stream management, account cards, quick-add
+- **Scenarios** (`ScenariosPage`) — 3-step wizard (Decision → Accounts & Settings → Adjust Streams), scenario picker/switcher, import decisions from other scenarios
+- **Forecast** (`ForecastPage`) — chart + metrics + decision toggles
+
+## ScenarioStore Interface
+All storage goes through `ScenarioStore` in `src/store/types.ts`:
+- `listScenarios()` / `getScenario(id)` / `saveScenario()` / `deleteScenario()` — full scenario CRUD
+- `getDecisionsForScenario(scenarioId)` — decisions scoped to a scenario
+- `getBaseline()` / `saveBaseline()` — legacy single-scenario endpoints (backward compat)
+- `getDecisions()` / `saveDecision()` / `deleteDecision()` — decision management
+- `clear()` — wipe all data
 
 ## Testing
 - Engine can be tested independently of UI
