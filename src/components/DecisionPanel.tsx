@@ -96,6 +96,7 @@ export function DecisionPanel({
         {addMode === 'stream' && (
           <div className="bg-muted/50 border rounded-lg p-4 mb-4">
             <StreamEditor
+              hideCategory
               onSave={handleAddStream}
               onCancel={() => setAddMode(null)}
             />
@@ -106,7 +107,7 @@ export function DecisionPanel({
           <div className="bg-muted/50 border rounded-lg p-4 mb-4">
             <StreamEditor
               defaultType="expense"
-              defaultCategory="fixed"
+              hideCategory
               lockFrequency="one-time"
               onSave={handleAddStream}
               onCancel={() => setAddMode(null)}
@@ -120,6 +121,7 @@ export function DecisionPanel({
             <div key={stream.id} className="bg-muted/50 border rounded-lg p-4 mb-3">
               <StreamEditor
                 stream={stream}
+                hideCategory
                 onSave={handleUpdateStream}
                 onCancel={() => setEditingStreamId(null)}
               />

@@ -20,6 +20,7 @@ interface StreamEditorProps {
   defaultType?: StreamType; // Pre-set when opened from a section's "Add" button
   defaultCategory?: ExpenseCategory; // Pre-set for "Add Fixed Expense" vs "Add Variable Expense"
   lockFrequency?: Frequency; // If set, frequency is fixed and the dropdown is disabled
+  hideCategory?: boolean; // Hide the fixed/variable category picker (e.g. in decision workflow)
   onSave: (stream: CashStream) => void;
   onCancel: () => void;
 }
@@ -54,7 +55,7 @@ function addMonths(dateStr: string, months: number): string {
 const selectClass = "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
 const calcInputClass = "flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]";
 
-export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequency, onSave, onCancel }: StreamEditorProps) {
+export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequency, hideCategory, onSave, onCancel }: StreamEditorProps) {
   const initialType = stream?.type ?? defaultType ?? 'expense';
   const [name, setName] = useState(stream?.name ?? '');
   const [amount, setAmount] = useState(stream?.amount ?? 0);
@@ -85,19 +86,20 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
   const needsAnchorDate = frequency === 'biweekly' || frequency === 'weekly';
   const isTransfer = type === 'transfer';
   const isExpense = type === 'expense';
-  const showFinancing = isExpense && frequency === 'monthly';
+  const showFinancing = isExpense; // financing checkbox visible for any expense
+  const showFinancingDetails = isFinanced && isExpense;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     // Auto-calculate end date from loan term
     let computedEndDate = endDate;
-    if (isFinanced && showFinancing && startDate && loanTermMonths > 0) {
+    if (showFinancingDetails && startDate && loanTermMonths > 0) {
       computedEndDate = addMonths(startDate, loanTermMonths);
     }
 
     // Use calculated payment when financing is active and not using custom
-    const finalAmount = (isFinanced && showFinancing && !useCustomPayment && calculatedPayment > 0)
+    const finalAmount = (showFinancingDetails && !useCustomPayment && calculatedPayment > 0)
       ? calculatedPayment
       : amount;
 
@@ -131,19 +133,6 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           />
         </FormField>
 
-        <FormField label="Amount">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-            <CalculatorInput
-              value={amount}
-              onChange={setAmount}
-              min={0}
-              required
-              className={`${calcInputClass} pl-7`}
-            />
-          </div>
-        </FormField>
-
         <FormField label="Type">
           <select
             className={selectClass}
@@ -155,6 +144,9 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
                 setCategory('fixed');
               } else {
                 setCategory(undefined);
+                // Clear financing state when switching away from expense
+                setIsFinanced(false);
+                setUseCustomPayment(false);
               }
             }}
           >
@@ -164,7 +156,7 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           </select>
         </FormField>
 
-        {isExpense && (
+        {isExpense && !hideCategory && (
           <FormField label="Category" hint="Fixed = predictable amount, Variable = fluctuates">
             <select className={selectClass} value={category ?? 'fixed'} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
               <option value="fixed">Fixed</option>
@@ -173,11 +165,32 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           </FormField>
         )}
 
+        {showFinancing && (
+          <div className="flex items-center gap-2 col-span-full pt-1">
+            <Checkbox
+              id="financed"
+              checked={isFinanced}
+              onCheckedChange={(checked) => {
+                const on = checked === true;
+                setIsFinanced(on);
+                if (on) {
+                  // Financed purchases are always monthly
+                  setFrequency('monthly');
+                }
+                if (!on) setUseCustomPayment(false);
+              }}
+            />
+            <label htmlFor="financed" className="text-sm cursor-pointer">
+              This is a financed purchase
+            </label>
+          </div>
+        )}
+
         <FormField label="Frequency">
           <select
             className={selectClass}
             value={frequency}
-            disabled={!!lockFrequency}
+            disabled={!!lockFrequency || isFinanced}
             onChange={(e) => {
               const newFreq = e.target.value as Frequency;
               setFrequency(newFreq);
@@ -191,23 +204,7 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           </select>
         </FormField>
 
-        {showFinancing && (
-          <div className="flex items-center gap-2 col-span-full pt-1">
-            <Checkbox
-              id="financed"
-              checked={isFinanced}
-              onCheckedChange={(checked) => {
-                setIsFinanced(checked === true);
-                if (!checked) setUseCustomPayment(false);
-              }}
-            />
-            <label htmlFor="financed" className="text-sm cursor-pointer">
-              This is a financed purchase
-            </label>
-          </div>
-        )}
-
-        {isFinanced && showFinancing && (
+        {showFinancingDetails && (
           <div className="col-span-full rounded-lg border bg-muted/30 p-4 space-y-3">
             <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
               <FormField label="Total Amount Financed">
@@ -289,6 +286,19 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           </div>
         )}
 
+        <FormField label="Amount">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+            <CalculatorInput
+              value={amount}
+              onChange={setAmount}
+              min={0}
+              required
+              className={`${calcInputClass} pl-7`}
+            />
+          </div>
+        </FormField>
+
         <FormField label="Account">
           <select className={selectClass} value={account} onChange={(e) => setAccount(e.target.value as AccountType)}>
             <option value="checking">Checking</option>
@@ -336,7 +346,7 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           />
         </FormField>
 
-        {frequency !== 'one-time' && !(isFinanced && showFinancing) && (
+        {frequency !== 'one-time' && !showFinancingDetails && (
           <FormField label="End Date (optional)" hint="Leave blank if ongoing">
             <Input
               type="date"
@@ -346,7 +356,7 @@ export function StreamEditor({ stream, defaultType, defaultCategory, lockFrequen
           </FormField>
         )}
 
-        {isFinanced && showFinancing && startDate && loanTermMonths > 0 && (
+        {showFinancingDetails && startDate && loanTermMonths > 0 && (
           <FormField label="Payments End">
             <p className="text-sm tabular-nums py-2">
               {new Date(addMonths(startDate, loanTermMonths) + 'T00:00:00').toLocaleDateString()}

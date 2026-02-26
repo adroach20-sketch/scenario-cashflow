@@ -157,10 +157,8 @@ export function WorksheetPage({ baseline, onUpdateStream, onDeleteStream, onAddS
       {/* Setup Strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 rounded-lg border bg-muted/50 p-4">
         <EditableBalance label="Safety Buffer" value={baseline.safetyBuffer} field="safetyBuffer" onChange={onSetupChange} />
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Forecast Period</span>
-          <span className="text-sm tabular-nums">{baseline.startDate} to {baseline.endDate}</span>
-        </div>
+        <EditableDate label="Start Date" value={baseline.startDate} field="startDate" onChange={onSetupChange} />
+        <EditableDate label="End Date" value={baseline.endDate} field="endDate" onChange={onSetupChange} />
       </div>
 
       {/* Accounts */}
@@ -322,6 +320,62 @@ function EditableBalance({ label, value, field, onChange }: EditableBalanceProps
       <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
       <span className="text-sm tabular-nums">
         {formatCurrency(value)}
+        <span className="ml-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+          click to edit
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/* ---------- Editable Date ---------- */
+
+interface EditableDateProps {
+  label: string;
+  value: string;
+  field: string;
+  onChange: (field: string, value: number | string) => void;
+}
+
+function EditableDate({ label, value, field, onChange }: EditableDateProps) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  function handleSave() {
+    if (draft) onChange(field, draft);
+    setEditing(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') { setDraft(value); setEditing(false); }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+        <Input
+          type="date"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={handleSave}
+          autoFocus
+          className="h-8 w-40 tabular-nums"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="flex flex-col gap-1 cursor-pointer group"
+      onClick={() => { setDraft(value); setEditing(true); }}
+    >
+      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-sm tabular-nums">
+        {value}
         <span className="ml-2 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
           click to edit
         </span>

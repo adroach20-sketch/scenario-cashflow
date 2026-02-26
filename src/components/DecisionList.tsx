@@ -2,7 +2,7 @@
  * List of decision scenarios with toggle, expand/collapse, and color indicators.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { DecisionConfig } from '../engine';
 import { DecisionPanel } from './DecisionPanel';
 import { DECISION_COLORS } from './ForecastChart';
@@ -31,6 +31,13 @@ export function DecisionList({
   const [expandedId, setExpandedId] = useState<string | null>(
     decisions.length === 1 ? decisions[0].id : null
   );
+
+  // Auto-expand when there's exactly one decision (e.g. new scenario with auto-created decision)
+  useEffect(() => {
+    if (decisions.length === 1) {
+      setExpandedId(decisions[0].id);
+    }
+  }, [decisions.length]);
 
   function colorFor(decisionId: string) {
     const idx = allDecisionIds.indexOf(decisionId);

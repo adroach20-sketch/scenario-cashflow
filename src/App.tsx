@@ -305,10 +305,20 @@ function App() {
       ],
       streams: [],
     };
+    // Auto-create the first decision so the user lands with the stream form open
+    const firstDecision: DecisionConfig = {
+      id: crypto.randomUUID(),
+      name: 'New Decision',
+      baselineId: fresh.id,
+      addStreams: [],
+      removeStreamIds: [],
+      modifyStreams: [],
+      checkingBalanceAdjustment: 0,
+      savingsBalanceAdjustment: 0,
+    };
     setBaseline(fresh);
-    setDecisions([]);
-    setEnabledDecisionIds(new Set());
-    setActivePage('worksheet');
+    setDecisions([firstDecision]);
+    setEnabledDecisionIds(new Set([firstDecision.id]));
   }, [baseline, decisions]);
 
   const handleDeleteScenario = useCallback(async (scenarioId: string) => {
@@ -443,7 +453,6 @@ function App() {
           enabledDecisionIds={enabledDecisionIds}
           scenarioList={scenarioList}
           isDemo={isDemo}
-          onSetupChange={handleSetupChange}
           onToggleStream={handleToggleStream}
           onOverrideStream={handleOverrideStream}
           onAddDecision={handleAddDecision}
