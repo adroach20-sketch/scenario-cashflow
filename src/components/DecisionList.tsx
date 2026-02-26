@@ -1,17 +1,13 @@
 /**
  * List of decision scenarios with toggle, expand/collapse, and color indicators.
- *
- * Each decision shows as a collapsible card with:
- * - Color dot matching its chart line
- * - Name
- * - Enabled/disabled toggle
- * - Expand to show the full DecisionPanel editor
  */
 
 import { useState } from 'react';
 import type { DecisionConfig } from '../engine';
 import { DecisionPanel } from './DecisionPanel';
 import { DECISION_COLORS } from './ForecastChart';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 interface DecisionListProps {
   decisions: DecisionConfig[];
@@ -43,11 +39,11 @@ export function DecisionList({
 
   if (decisions.length === 0) {
     return (
-      <div className="decision-panel">
-        <button className="what-if-button primary" onClick={onAdd}>
+      <div className="text-center py-8">
+        <Button size="lg" onClick={onAdd}>
           What if...?
-        </button>
-        <p className="decision-hint">
+        </Button>
+        <p className="text-sm text-muted-foreground mt-2">
           Create a scenario to see how changes affect your forecast
         </p>
       </div>
@@ -55,7 +51,7 @@ export function DecisionList({
   }
 
   return (
-    <div className="decision-list">
+    <div className="flex flex-col gap-3">
       {decisions.map((decision) => {
         const isExpanded = expandedId === decision.id;
         const isEnabled = enabledDecisionIds.has(decision.id);
@@ -63,32 +59,33 @@ export function DecisionList({
         const streamCount = decision.addStreams.length;
 
         return (
-          <div key={decision.id} className="decision-card">
-            <div className="decision-card-header">
-              <div className="decision-card-left">
-                <label className="decision-card-toggle">
+          <Card key={decision.id} className="overflow-hidden py-0">
+            <div className="flex items-center justify-between px-4 py-3 gap-4">
+              <div className="flex items-center gap-2 min-w-0">
+                <label className="flex items-center gap-1.5 cursor-pointer flex-shrink-0">
                   <input
                     type="checkbox"
                     checked={isEnabled}
                     onChange={() => onToggle(decision.id)}
+                    className="w-4 h-4 cursor-pointer rounded accent-primary"
                   />
                   <span
-                    className="decision-card-dot"
-                    style={{ background: isEnabled ? color.main : '#d1d5db' }}
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ background: isEnabled ? color.main : 'var(--border)' }}
                   />
                 </label>
                 <button
-                  className="decision-card-name"
+                  className="bg-transparent border-0 p-0 text-sm font-medium cursor-pointer text-left truncate hover:text-primary transition-colors"
                   onClick={() => setExpandedId(isExpanded ? null : decision.id)}
                 >
                   {decision.name || 'Untitled Decision'}
-                  <span className="decision-card-chevron">
+                  <span className="ml-1.5 text-xs text-muted-foreground">
                     {isExpanded ? '▾' : '▸'}
                   </span>
                 </button>
               </div>
-              <div className="decision-card-right">
-                <span className="decision-card-summary">
+              <div className="flex-shrink-0">
+                <span className="text-xs text-muted-foreground">
                   {streamCount > 0
                     ? `${streamCount} stream${streamCount > 1 ? 's' : ''}`
                     : 'No streams yet'}
@@ -96,7 +93,7 @@ export function DecisionList({
               </div>
             </div>
             {isExpanded && (
-              <div className="decision-card-body">
+              <div className="border-t">
                 <DecisionPanel
                   decision={decision}
                   onUpdate={onUpdate}
@@ -104,12 +101,12 @@ export function DecisionList({
                 />
               </div>
             )}
-          </div>
+          </Card>
         );
       })}
-      <button className="decision-add-button" onClick={onAdd}>
+      <Button variant="outline" onClick={onAdd} className="self-start">
         + Add Decision
-      </button>
+      </Button>
     </div>
   );
 }

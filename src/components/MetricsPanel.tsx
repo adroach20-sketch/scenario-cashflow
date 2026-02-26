@@ -2,18 +2,18 @@
  * Summary metrics displayed below the chart.
  *
  * Shows key fragility indicators in a table format that scales to N decisions.
- * Columns: Metric | Baseline | Decision A | Decision B | ...
- * Color-coded deltas show whether each decision helps or hurts.
  */
 
 import type { ForecastMetrics } from '../engine';
 import type { DecisionForecast } from '../hooks/useForecaster';
 import { DECISION_COLORS } from './ForecastChart';
+import { Card } from '@/components/ui/card';
+import { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface MetricsPanelProps {
   baselineMetrics: ForecastMetrics | null;
   decisionForecasts: DecisionForecast[];
-  /** Full decisions ID list for stable color mapping */
   allDecisionIds: string[];
 }
 
@@ -68,67 +68,70 @@ export function MetricsPanel({
   }
 
   return (
-    <div className="metrics-table-container">
-      <table className="metrics-table">
-        <thead>
-          <tr>
-            <th className="metrics-th metrics-th-label"></th>
-            <th className="metrics-th">
-              <span className="metrics-col-dot" style={{ background: '#2563eb' }} />
+    <Card className="p-5 overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-[140px]"></TableHead>
+            <TableHead className="whitespace-nowrap">
+              <span className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style={{ background: 'var(--primary)' }} />
               Baseline
-            </th>
+            </TableHead>
             {decisionForecasts.map((df) => (
-              <th key={df.decision.id} className="metrics-th">
+              <TableHead key={df.decision.id} className="whitespace-nowrap">
                 <span
-                  className="metrics-col-dot"
+                  className="inline-block w-2 h-2 rounded-full mr-1.5 align-middle"
                   style={{ background: colorFor(df.decision.id).main }}
                 />
                 {df.decision.name}
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {METRICS.map((metric) => (
-            <tr key={metric.label}>
-              <td className="metrics-td metrics-td-label">{metric.label}</td>
-              <td className="metrics-td">
-                <span className="metrics-value">{metric.getValue(baselineMetrics)}</span>
+            <TableRow key={metric.label}>
+              <TableCell className="font-medium whitespace-nowrap">{metric.label}</TableCell>
+              <TableCell>
+                <span className="font-semibold tabular-nums">{metric.getValue(baselineMetrics)}</span>
                 {metric.getSub && (
-                  <span className="metrics-sub">{metric.getSub(baselineMetrics)}</span>
+                  <span className="block text-xs text-muted-foreground mt-0.5">{metric.getSub(baselineMetrics)}</span>
                 )}
-              </td>
+              </TableCell>
               {decisionForecasts.map((df) => {
                 const decisionMetrics = df.result.metrics;
                 const delta = metric.getDelta(baselineMetrics, decisionMetrics);
-                const deltaClass =
-                  delta === 0
-                    ? ''
-                    : (delta > 0) === metric.positiveIsGood
-                      ? 'metric-good'
-                      : 'metric-bad';
+                const isGood = delta === 0 ? null : (delta > 0) === metric.positiveIsGood;
 
                 return (
-                  <td key={df.decision.id} className="metrics-td">
-                    <span className={`metrics-value ${deltaClass}`}>
+                  <TableCell key={df.decision.id}>
+                    <span className={cn(
+                      "font-semibold tabular-nums",
+                      isGood === true && "text-income",
+                      isGood === false && "text-expense"
+                    )}>
                       {metric.getValue(decisionMetrics)}
                     </span>
                     {delta !== 0 && (
-                      <span className={`metrics-delta ${deltaClass}`}>
+                      <span className={cn(
+                        "block text-xs font-semibold mt-0.5 tabular-nums",
+                        isGood === true && "text-income",
+                        isGood === false && "text-expense"
+                      )}>
                         {formatDelta(delta, metric.label.includes('days') || metric.label.includes('Days'))}
                       </span>
                     )}
-                  </td>
+                  </TableCell>
                 );
               })}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {!hasDecisions && (
-        <p className="metrics-hint">Add a decision to compare against your baseline</p>
+        <p className="text-center text-muted-foreground text-sm mt-3">Add a decision to compare against your baseline</p>
       )}
-    </div>
+    </Card>
   );
 }
 

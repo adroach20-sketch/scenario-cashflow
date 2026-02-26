@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CashStream } from '../engine';
 import { CalculatorInput } from './CalculatorInput';
+import { cn } from '@/lib/utils';
 
 interface StreamToggleListProps {
   streams: CashStream[];
@@ -36,7 +37,7 @@ export function StreamToggleList({
   const transferStreams = streams.filter((s) => s.type === 'transfer');
 
   return (
-    <div className="stream-toggle-list">
+    <div className="flex flex-col gap-3">
       {incomeStreams.length > 0 && (
         <StreamToggleGroup
           label="Income"
@@ -68,7 +69,7 @@ export function StreamToggleList({
         />
       )}
       {streams.length === 0 && (
-        <p className="stream-list-empty">No streams yet. Add them on the Accounts page.</p>
+        <p className="text-sm text-muted-foreground text-center py-6">No streams yet. Add them on the Cash Flow page.</p>
       )}
     </div>
   );
@@ -92,8 +93,10 @@ function StreamToggleGroup({
   onOverride,
 }: StreamToggleGroupProps) {
   return (
-    <div className="stl-group">
-      <div className="stl-group-label">{label}</div>
+    <div className="flex flex-col">
+      <div className="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground py-1.5 border-b mb-1">
+        {label}
+      </div>
       {streams.map((stream) => (
         <StreamToggleRow
           key={stream.id}
@@ -123,30 +126,28 @@ function StreamToggleRow({ stream, disabled, override, onToggle, onOverride }: S
   const hasOverride = override?.amount != null && override.amount !== stream.amount;
   const displayAmount = hasOverride ? override!.amount! : stream.amount;
 
-
   return (
-    <div className={`stl-row ${disabled ? 'stl-row-disabled' : ''}`}>
-      <label className="stl-checkbox-label">
+    <div className={cn("flex items-center gap-3 px-2 py-1.5 rounded transition-colors hover:bg-muted/50", disabled && "opacity-50")}>
+      <label className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer">
         <input
           type="checkbox"
           checked={!disabled}
           onChange={onToggle}
-          className="stl-checkbox"
+          className="w-4 h-4 flex-shrink-0 cursor-pointer rounded border-input accent-primary"
         />
-        <span className={`stl-name ${disabled ? 'stl-strikethrough' : ''}`}>
+        <span className={cn("text-sm truncate", disabled && "line-through text-muted-foreground")}>
           {stream.name}
         </span>
       </label>
 
-      <div className="stl-amount-area">
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         {editingAmount && !disabled ? (
-          <div className="stl-amount-edit">
-            <span className="stl-dollar">$</span>
+          <div className="flex items-center">
+            <span className="text-[0.8125rem] text-muted-foreground mr-0.5">$</span>
             <CalculatorInput
               value={draftAmount}
               onChange={(val) => {
                 setDraftAmount(val);
-                // Auto-save when the calculator evaluates
                 if (val !== stream.amount && val > 0) {
                   onOverride(val);
                 } else {
@@ -154,28 +155,37 @@ function StreamToggleRow({ stream, disabled, override, onToggle, onOverride }: S
                 }
                 setEditingAmount(false);
               }}
-              className="stl-amount-input"
+              className="w-20 px-1.5 py-0.5 border border-primary rounded text-[0.8125rem] outline-none"
               autoFocus
               min={0}
             />
           </div>
         ) : (
           <span
-            className={`stl-amount ${disabled ? 'stl-strikethrough' : ''} ${!disabled ? 'stl-amount-clickable' : ''}`}
+            className={cn(
+              "text-sm font-semibold tabular-nums whitespace-nowrap",
+              disabled && "line-through text-muted-foreground",
+              !disabled && "cursor-pointer px-1.5 py-0.5 rounded transition-colors hover:bg-accent hover:text-primary"
+            )}
             onClick={() => { if (!disabled) { setDraftAmount(override?.amount ?? stream.amount); setEditingAmount(true); } }}
           >
             {hasOverride && (
-              <span className="stl-original-amount">{formatCurrency(stream.amount)}</span>
+              <span className="line-through text-muted-foreground font-normal mr-1.5 text-[0.8125rem]">{formatCurrency(stream.amount)}</span>
             )}
             {formatCurrency(displayAmount)}
           </span>
         )}
         {hasOverride && !disabled && !editingAmount && (
-          <button className="stl-reset" onClick={() => onOverride(null)}>reset</button>
+          <button
+            className="text-[0.6875rem] text-muted-foreground bg-transparent border-0 p-0 cursor-pointer underline hover:text-primary"
+            onClick={() => onOverride(null)}
+          >
+            reset
+          </button>
         )}
       </div>
 
-      <span className={`stl-freq ${disabled ? 'stl-strikethrough' : ''}`}>
+      <span className={cn("text-xs text-muted-foreground flex-shrink-0 w-12 text-right tabular-nums", disabled && "line-through")}>
         {FREQUENCY_SHORT[stream.frequency]}
       </span>
     </div>

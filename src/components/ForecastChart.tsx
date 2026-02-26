@@ -3,7 +3,7 @@
  *
  * Uses Recharts to render overlaid lines with a safety buffer line.
  * Each decision gets a distinct color from the palette. The baseline
- * is always blue; decisions cycle through green, amber, purple, etc.
+ * is always indigo; decisions cycle through green, amber, purple, etc.
  */
 
 import {
@@ -20,6 +20,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import type { ForecastResult } from '../engine';
 import type { DecisionForecast } from '../hooks/useForecaster';
+import { Card } from '@/components/ui/card';
 
 // Color palette for decision lines (checking solid, savings light/dashed)
 export const DECISION_COLORS = [
@@ -35,7 +36,6 @@ interface ForecastChartProps {
   baselineResult: ForecastResult | null;
   decisionForecasts: DecisionForecast[];
   safetyBuffer: number;
-  /** Full decisions array (all, not just enabled) — used for stable color assignment */
   allDecisionIds: string[];
 }
 
@@ -47,13 +47,12 @@ export function ForecastChart({
 }: ForecastChartProps) {
   if (!baselineResult) {
     return (
-      <div className="chart-empty">
+      <div className="flex items-center justify-center h-[300px] bg-muted/50 border-2 border-dashed rounded-lg text-muted-foreground">
         <p>Add income and expenses to see your forecast</p>
       </div>
     );
   }
 
-  // Build chart data with dynamic keys per decision
   const data = baselineResult.daily.map((day, i) => {
     const point: Record<string, any> = {
       date: day.date,
@@ -71,7 +70,6 @@ export function ForecastChart({
     return point;
   });
 
-  // Stable color index: based on position in the full decisions array
   function colorFor(decisionId: string) {
     const idx = allDecisionIds.indexOf(decisionId);
     return DECISION_COLORS[(idx >= 0 ? idx : 0) % DECISION_COLORS.length];
@@ -80,23 +78,22 @@ export function ForecastChart({
   const tickInterval = Math.max(1, Math.floor(data.length / 12));
 
   return (
-    <div className="forecast-chart">
+    <Card className="p-5">
       <ResponsiveContainer width="100%" height={400}>
         <LineChart data={data} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
           <XAxis
             dataKey="label"
             interval={tickInterval}
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
           />
           <YAxis
-            tick={{ fontSize: 12, fill: '#6b7280' }}
+            tick={{ fontSize: 12, fill: 'var(--muted-foreground)' }}
             tickFormatter={(value: number) => `$${(value / 1000).toFixed(0)}k`}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
 
-          {/* Safety buffer line */}
           <ReferenceLine
             y={safetyBuffer}
             stroke="#ef4444"
@@ -109,20 +106,17 @@ export function ForecastChart({
             }}
           />
 
-          {/* Zero line */}
-          <ReferenceLine y={0} stroke="#374151" strokeWidth={1} />
+          <ReferenceLine y={0} stroke="var(--foreground)" strokeWidth={1} />
 
-          {/* Baseline checking */}
           <Line
             type="monotone"
             dataKey="baselineChecking"
-            stroke="#2563eb"
+            stroke="var(--primary)"
             strokeWidth={2}
             dot={false}
             name="Baseline"
           />
 
-          {/* Decision checking lines */}
           {decisionForecasts.map((df) => (
             <Line
               key={`checking_${df.decision.id}`}
@@ -135,18 +129,16 @@ export function ForecastChart({
             />
           ))}
 
-          {/* Baseline savings (lighter, dashed) */}
           <Line
             type="monotone"
             dataKey="baselineSavings"
-            stroke="#93c5fd"
+            stroke="var(--ring)"
             strokeWidth={1}
             strokeDasharray="4 4"
             dot={false}
             name="Baseline Savings"
           />
 
-          {/* Decision savings lines */}
           {decisionForecasts.map((df) => (
             <Line
               key={`savings_${df.decision.id}`}
@@ -161,19 +153,18 @@ export function ForecastChart({
           ))}
         </LineChart>
       </ResponsiveContainer>
-    </div>
+    </Card>
   );
 }
 
-/** Custom tooltip that shows balance details on hover. */
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || payload.length === 0) return null;
 
   return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip-date">{label}</p>
+    <div className="bg-popover border rounded-md px-3 py-2 shadow-md text-[0.8125rem]">
+      <p className="font-semibold text-foreground mb-0.5">{label}</p>
       {payload.map((entry: any) => (
-        <p key={entry.dataKey} style={{ color: entry.color }}>
+        <p key={entry.dataKey} style={{ color: entry.color }} className="my-0.5">
           {entry.name}: ${entry.value?.toLocaleString(undefined, {
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,

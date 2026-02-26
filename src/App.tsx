@@ -16,7 +16,6 @@ import { AppShell, type Page } from './components/AppShell';
 import { ForecastPage } from './pages/ForecastPage';
 import { ScenariosPage } from './pages/ScenariosPage';
 import { WorksheetPage } from './pages/WorksheetPage';
-import './App.css';
 
 function syncAccountBalances(config: ScenarioConfig): ScenarioConfig {
   const accounts = config.accounts || [];
@@ -406,7 +405,7 @@ function App() {
   }, []);
 
   if (!isLoaded || !baseline) {
-    return <div className="app loading">Loading...</div>;
+    return <div className="flex items-center justify-center min-h-[50vh] text-muted-foreground">Loading...</div>;
   }
 
   const isDemo = baseline.name === 'Demo Baseline';
@@ -414,12 +413,17 @@ function App() {
   return (
     <>
     {saveError && (
-      <div className="save-error-banner">
+      <div className="flex items-center justify-center gap-4 px-6 py-2.5 bg-destructive/10 border-b border-destructive/20 text-destructive text-sm font-medium">
         {saveError}
-        <button onClick={() => setSaveError(null)}>Dismiss</button>
+        <button
+          className="bg-transparent border border-destructive/30 rounded px-3 py-0.5 text-xs text-destructive cursor-pointer hover:bg-destructive/10"
+          onClick={() => setSaveError(null)}
+        >
+          Dismiss
+        </button>
       </div>
     )}
-    <AppShell activePage={activePage} onNavigate={setActivePage}>
+    <AppShell activePage={activePage} onNavigate={setActivePage} accounts={baseline.accounts || []}>
       {activePage === 'worksheet' && (
         <WorksheetPage
           baseline={baseline}

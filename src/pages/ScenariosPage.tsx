@@ -6,6 +6,18 @@ import { apiStore } from '../store/apiClient';
 import { SetupPanel } from '../components/SetupPanel';
 import { StreamToggleList } from '../components/StreamToggleList';
 import { DecisionList } from '../components/DecisionList';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 type Step = 'decision' | 'accounts' | 'streams';
 
@@ -79,46 +91,42 @@ export function ScenariosPage({
   const otherScenarios = scenarioList.filter((s) => s.id !== baseline.id);
 
   return (
-    <div className="app">
-      <header className="app-header">
+    <div className="space-y-6">
+      <header className="flex items-center justify-between pb-4 border-b">
         <div>
-          <h1>Scenarios</h1>
-          <p className="subtitle">Build and configure what-if scenarios</p>
+          <h1 className="text-2xl font-bold tracking-tight">Scenarios</h1>
+          <p className="text-sm text-muted-foreground">Build and configure what-if scenarios</p>
         </div>
-        <div className="header-actions">
-          {isDemo && (
-            <button className="primary" onClick={onStartFresh}>
-              Use My Numbers
-            </button>
-          )}
-          {!isDemo && (
-            <button onClick={onStartFresh}>
-              Start Over
-            </button>
+        <div className="flex gap-2">
+          {isDemo ? (
+            <Button onClick={onStartFresh}>Use My Numbers</Button>
+          ) : (
+            <Button variant="outline" onClick={onStartFresh}>Start Over</Button>
           )}
         </div>
       </header>
 
       {isDemo && (
-        <div className="demo-banner">
+        <div className="bg-accent border-l-4 border-l-primary rounded-lg px-4 py-3 text-sm text-primary">
           This is demo data. Click "Use My Numbers" to enter your own scenario.
         </div>
       )}
 
-      <div className="scenario-picker">
-        <div className="scenario-picker-current">
-          <span className="scenario-picker-editing-label">EDITING:</span>
-          <input
-            className="scenario-name-input"
+      {/* Scenario Picker */}
+      <Card className="py-0 overflow-hidden">
+        <div className="flex items-center gap-2.5 px-4 py-3">
+          <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-primary whitespace-nowrap">EDITING:</span>
+          <Input
             type="text"
             value={baseline.name}
             onChange={(e) => onScenarioNameChange(e.target.value)}
+            className="border-transparent bg-transparent hover:border-input focus:border-input font-semibold h-8"
           />
         </div>
-        <div className="scenario-picker-actions">
+        <div className="flex items-center gap-2 px-4 py-2 border-t bg-muted/30">
           {otherScenarios.length > 0 && (
             <select
-              className="scenario-select"
+              className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
               value=""
               onChange={(e) => {
                 if (e.target.value) {
@@ -126,7 +134,6 @@ export function ScenariosPage({
                   if (confirm(`Switch to "${targetName}"? Your current scenario is saved automatically.`)) {
                     onSwitchScenario(e.target.value);
                   }
-                  // Reset the select so it shows the placeholder again
                   e.target.value = '';
                 }
               }}
@@ -137,8 +144,8 @@ export function ScenariosPage({
               ))}
             </select>
           )}
-          <button
-            className="scenario-new-btn"
+          <Button
+            size="sm"
             onClick={() => {
               if (confirm('Create a new scenario? Your current scenario is saved automatically.')) {
                 onNewScenario();
@@ -146,10 +153,11 @@ export function ScenariosPage({
             }}
           >
             + New Scenario
-          </button>
+          </Button>
           {scenarioList.length > 1 && (
-            <button
-              className="scenario-delete-btn"
+            <Button
+              size="sm"
+              variant="destructive"
               onClick={() => {
                 if (confirm(`Delete "${baseline.name}"? This cannot be undone.`)) {
                   onDeleteScenario(baseline.id);
@@ -157,30 +165,48 @@ export function ScenariosPage({
               }}
             >
               Delete
-            </button>
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
 
-      <div className="wizard-steps">
+      {/* Wizard Steps */}
+      <div className="flex border rounded-lg overflow-hidden bg-muted/30">
         {STEPS.map((s, i) => (
           <button
             key={s.key}
-            className={`wizard-step ${s.key === step ? 'wizard-step-active' : ''} ${i < stepIndex ? 'wizard-step-done' : ''}`}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm transition-colors border-0 cursor-pointer",
+              i < STEPS.length - 1 && "border-r",
+              s.key === step
+                ? "bg-card font-semibold text-foreground shadow-[inset_0_-2px_0] shadow-primary"
+                : "bg-transparent text-muted-foreground hover:bg-muted/50",
+              i < stepIndex && "text-income"
+            )}
             onClick={() => setStep(s.key)}
           >
-            <span className="wizard-step-number">{i < stepIndex ? '\u2713' : s.number}</span>
-            <span className="wizard-step-label">{s.label}</span>
+            <span className={cn(
+              "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold flex-shrink-0",
+              s.key === step
+                ? "bg-primary text-primary-foreground"
+                : i < stepIndex
+                  ? "bg-income/10 text-income"
+                  : "bg-muted text-muted-foreground"
+            )}>
+              {i < stepIndex ? '\u2713' : s.number}
+            </span>
+            <span className="whitespace-nowrap">{s.label}</span>
           </button>
         ))}
       </div>
 
-      <div className="wizard-content">
+      {/* Wizard Content */}
+      <div className="min-h-[400px]">
         {step === 'decision' && (
-          <div className="wizard-panel">
-            <h2>What are you considering?</h2>
-            <p className="subtitle">Define the new streams that come with this decision</p>
-            <div className="wizard-panel-body">
+          <div className="flex flex-col">
+            <h2 className="text-lg font-semibold mb-1">What are you considering?</h2>
+            <p className="text-sm text-muted-foreground mb-5">Define the new streams that come with this decision</p>
+            <div className="flex-1 mb-6">
               <DecisionList
                 decisions={decisions}
                 enabledDecisionIds={enabledDecisionIds}
@@ -192,70 +218,72 @@ export function ScenariosPage({
               />
 
               {otherScenarios.length > 0 && (
-                <div className="import-section">
-                  <button
-                    className="import-btn"
-                    onClick={() => setShowImportModal(true)}
-                  >
+                <div className="flex items-center gap-3 mt-5 pt-5 border-t">
+                  <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
                     Import from previous scenario
-                  </button>
-                  <span className="import-hint">Add a previous decision's net monthly impact as a stream</span>
+                  </Button>
+                  <span className="text-xs text-muted-foreground">Add a previous decision's net monthly impact as a stream</span>
                 </div>
               )}
 
-              {showImportModal && (
-                <ImportModal
-                  scenarios={otherScenarios}
-                  onImport={(scenarioId, decisionId) => {
-                    onImportDecisionAsStream(scenarioId, decisionId);
-                    setShowImportModal(false);
-                  }}
-                  onClose={() => setShowImportModal(false)}
-                />
-              )}
+              <ImportModal
+                open={showImportModal}
+                scenarios={otherScenarios}
+                onImport={(scenarioId, decisionId) => {
+                  onImportDecisionAsStream(scenarioId, decisionId);
+                  setShowImportModal(false);
+                }}
+                onClose={() => setShowImportModal(false)}
+              />
             </div>
-            <div className="wizard-nav">
+            <div className="flex justify-between items-center pt-5 border-t">
               <div />
-              <button className="primary" onClick={goNext}>
+              <Button onClick={goNext}>
                 Next: Review Accounts &rarr;
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {step === 'accounts' && (
-          <div className="wizard-panel">
-            <h2>Your Accounts & Settings</h2>
-            <p className="subtitle">Confirm your starting balances and forecast settings</p>
-            <div className="wizard-panel-body">
-              <div className="wizard-accounts-grid">
-                {(baseline.accounts || []).map((account) => (
-                  <div key={account.id} className="wizard-account-card">
-                    <div className="wizard-account-name">{account.name}</div>
-                    <div className="wizard-account-type">{account.accountType}</div>
-                    <div className={`wizard-account-balance ${(account.accountType === 'credit-card' || account.accountType === 'loan') ? 'negative' : ''}`}>
-                      ${Math.abs(account.balance).toLocaleString()}
-                    </div>
-                    {account.accountType === 'credit-card' && account.creditLimit && (
-                      <div className="wizard-account-detail">Limit: ${account.creditLimit.toLocaleString()}</div>
-                    )}
-                    {(account.accountType === 'credit-card' || account.accountType === 'loan') && account.interestRate && (
-                      <div className="wizard-account-detail">{account.interestRate}% APR</div>
-                    )}
-                  </div>
-                ))}
+          <div className="flex flex-col">
+            <h2 className="text-lg font-semibold mb-1">Your Accounts & Settings</h2>
+            <p className="text-sm text-muted-foreground mb-5">Confirm your starting balances and forecast settings</p>
+            <div className="flex-1 mb-6">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 mb-4">
+                {(baseline.accounts || []).map((account) => {
+                  const isDebt = account.accountType === 'credit-card' || account.accountType === 'loan';
+                  return (
+                    <Card key={account.id} className="py-4">
+                      <CardContent className="px-4 py-0">
+                        <div className="font-semibold text-sm mb-0.5">{account.name}</div>
+                        <div className="text-[0.6875rem] uppercase tracking-wider text-muted-foreground mb-2">{account.accountType}</div>
+                        <div className={cn("text-xl font-bold tabular-nums", isDebt ? "text-expense" : "text-income")}>
+                          ${Math.abs(account.balance).toLocaleString()}
+                        </div>
+                        {account.accountType === 'credit-card' && account.creditLimit && (
+                          <div className="text-xs text-muted-foreground mt-1">Limit: ${account.creditLimit.toLocaleString()}</div>
+                        )}
+                        {isDebt && account.interestRate && (
+                          <div className="text-xs text-muted-foreground mt-0.5">{account.interestRate}% APR</div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
               {(baseline.accounts || []).length === 0 && (
-                <p className="wizard-empty">No accounts set up yet.</p>
+                <p className="text-sm text-muted-foreground py-6">No accounts set up yet.</p>
               )}
-              <button
-                className="wizard-edit-link"
+              <Button
+                variant="link"
+                className="p-0 h-auto text-sm"
                 onClick={() => onNavigate('worksheet')}
               >
-                Edit accounts on the Accounts page &rarr;
-              </button>
+                Edit accounts on the Cash Flow page &rarr;
+              </Button>
 
-              <div className="wizard-divider" />
+              <div className="h-px bg-border my-5" />
 
               <SetupPanel
                 safetyBuffer={baseline.safetyBuffer}
@@ -264,20 +292,20 @@ export function ScenariosPage({
                 onChange={onSetupChange}
               />
             </div>
-            <div className="wizard-nav">
-              <button onClick={goBack}>&larr; Back</button>
-              <button className="primary" onClick={goNext}>
+            <div className="flex justify-between items-center pt-5 border-t">
+              <Button variant="outline" onClick={goBack}>&larr; Back</Button>
+              <Button onClick={goNext}>
                 Next: Adjust Streams &rarr;
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {step === 'streams' && (
-          <div className="wizard-panel">
-            <h2>Adjust Streams</h2>
-            <p className="subtitle">Toggle streams on/off or click an amount to override it for this forecast</p>
-            <div className="wizard-panel-body">
+          <div className="flex flex-col">
+            <h2 className="text-lg font-semibold mb-1">Adjust Streams</h2>
+            <p className="text-sm text-muted-foreground mb-5">Toggle streams on/off or click an amount to override it for this forecast</p>
+            <div className="flex-1 mb-6">
               {baseline.streams.length > 0 ? (
                 <StreamToggleList
                   streams={baseline.streams}
@@ -287,22 +315,23 @@ export function ScenariosPage({
                   onOverride={onOverrideStream}
                 />
               ) : (
-                <div className="wizard-empty">
-                  <p>No income or expense streams yet.</p>
-                  <button
-                    className="wizard-edit-link"
+                <div className="text-sm text-muted-foreground py-6">
+                  <p className="mb-2">No income or expense streams yet.</p>
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-sm"
                     onClick={() => onNavigate('worksheet')}
                   >
-                    Add streams on the Accounts page &rarr;
-                  </button>
+                    Add streams on the Cash Flow page &rarr;
+                  </Button>
                 </div>
               )}
             </div>
-            <div className="wizard-nav">
-              <button onClick={goBack}>&larr; Back</button>
-              <button className="primary wizard-run-btn" onClick={() => onNavigate('forecast')}>
+            <div className="flex justify-between items-center pt-5 border-t">
+              <Button variant="outline" onClick={goBack}>&larr; Back</Button>
+              <Button size="lg" onClick={() => onNavigate('forecast')}>
                 View Forecast &rarr;
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -311,13 +340,16 @@ export function ScenariosPage({
   );
 }
 
+/* ---------- Import Modal ---------- */
+
 interface ImportModalProps {
+  open: boolean;
   scenarios: ScenarioSummary[];
   onImport: (scenarioId: string, decisionId: string) => void;
   onClose: () => void;
 }
 
-function ImportModal({ scenarios, onImport, onClose }: ImportModalProps) {
+function ImportModal({ open, scenarios, onImport, onClose }: ImportModalProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState('');
   const [availableDecisions, setAvailableDecisions] = useState<DecisionConfig[]>([]);
   const [loading, setLoading] = useState(false);
@@ -335,19 +367,19 @@ function ImportModal({ scenarios, onImport, onClose }: ImportModalProps) {
   }, [selectedScenarioId]);
 
   return (
-    <div className="import-modal-backdrop" onClick={onClose}>
-      <div className="import-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="import-modal-header">
-          <h3>Import from Previous Scenario</h3>
-          <button className="import-modal-close" onClick={onClose}>&times;</button>
-        </div>
-        <div className="import-modal-body">
-          <p className="import-modal-desc">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Import from Previous Scenario</DialogTitle>
+          <DialogDescription>
             Select a scenario and decision. Its net monthly impact will be added as a new stream in your current scenario.
-          </p>
-          <div className="setup-field">
-            <label>Scenario</label>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <Label>Scenario</Label>
             <select
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               value={selectedScenarioId}
               onChange={(e) => setSelectedScenarioId(e.target.value)}
             >
@@ -358,33 +390,33 @@ function ImportModal({ scenarios, onImport, onClose }: ImportModalProps) {
             </select>
           </div>
 
-          {loading && <p className="import-modal-loading">Loading decisions...</p>}
+          {loading && <p className="text-sm text-muted-foreground">Loading decisions...</p>}
 
           {selectedScenarioId && !loading && availableDecisions.length === 0 && (
-            <p className="import-modal-empty">No decisions in this scenario</p>
+            <p className="text-sm text-muted-foreground">No decisions in this scenario</p>
           )}
 
           {availableDecisions.length > 0 && (
-            <div className="import-decision-list">
+            <div className="flex flex-col gap-2 mt-3">
               {availableDecisions.map((d) => (
                 <button
                   key={d.id}
-                  className="import-decision-item"
+                  className="flex items-center gap-3 px-4 py-3 bg-muted/50 border rounded-lg cursor-pointer text-left transition-colors hover:bg-accent hover:border-primary/30 w-full"
                   onClick={() => onImport(selectedScenarioId, d.id)}
                 >
-                  <span className="import-decision-name">{d.name || 'Untitled'}</span>
-                  <span className="import-decision-detail">
+                  <span className="text-sm font-semibold flex-1">{d.name || 'Untitled'}</span>
+                  <span className="text-xs text-muted-foreground">
                     {d.addStreams.length > 0 && `${d.addStreams.length} stream${d.addStreams.length > 1 ? 's' : ''}`}
                     {d.addStreams.length > 0 && d.removeStreamIds.length > 0 && ' \u00B7 '}
                     {d.removeStreamIds.length > 0 && `${d.removeStreamIds.length} removed`}
                   </span>
-                  <span className="import-decision-arrow">&rarr;</span>
+                  <span className="text-primary text-sm">&rarr;</span>
                 </button>
               ))}
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

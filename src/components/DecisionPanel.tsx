@@ -1,20 +1,13 @@
 /**
  * Decision editor: define the streams that come with a financial decision.
- *
- * The user can:
- * - Name the decision (e.g., "Home Addition")
- * - Add new streams (recurring or one-time)
- * - Add upfront costs as one-time expense streams
- * - Edit and delete added streams inline
- *
- * Balance adjustments and baseline stream toggles have been removed.
- * Baseline stream toggling lives in the wizard's "Adjust Streams" step.
- * Upfront costs are modeled as self-documenting one-time expense streams.
  */
 
 import { useState } from 'react';
 import type { CashStream, DecisionConfig } from '../engine';
 import { StreamEditor } from './StreamEditor';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface DecisionPanelProps {
   decision: DecisionConfig;
@@ -35,7 +28,6 @@ export function DecisionPanel({
   onUpdate,
   onDelete,
 }: DecisionPanelProps) {
-  // Auto-open the add form when the decision has no streams yet
   const [addMode, setAddMode] = useState<'stream' | 'upfront' | null>(
     decision.addStreams.length === 0 ? 'stream' : null
   );
@@ -69,40 +61,40 @@ export function DecisionPanel({
   }
 
   return (
-    <div className="decision-panel-active">
-      <div className="decision-header">
-        <div className="setup-field" style={{ flex: 1 }}>
-          <label>Decision Name</label>
-          <input
+    <div className="p-5">
+      <div className="flex items-end gap-4 mb-5 pb-4 border-b">
+        <div className="flex-1 flex flex-col gap-1">
+          <Label>Decision Name</Label>
+          <Input
             type="text"
             value={decision.name}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="e.g., Home Addition"
           />
         </div>
-        <button className="danger" onClick={onDelete}>
+        <Button variant="destructive" size="sm" onClick={onDelete}>
           Delete
-        </button>
+        </Button>
       </div>
 
-      <div className="decision-section">
-        <div className="stream-list-header">
-          <h3>What changes with this decision?</h3>
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold">What changes with this decision?</h3>
           {decision.addStreams.length > 0 && !addMode && (
-            <div className="decision-action-buttons">
-              <button className="primary" onClick={() => setAddMode('stream')}>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setAddMode('stream')}>
                 + Add Stream
-              </button>
-              <button onClick={() => setAddMode('upfront')}>
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAddMode('upfront')}>
                 + Upfront Cost
-              </button>
+              </Button>
             </div>
           )}
         </div>
 
-        {/* Add stream / upfront cost form — shown at top */}
+        {/* Add stream / upfront cost form */}
         {addMode === 'stream' && (
-          <div className="stream-editor-container">
+          <div className="bg-muted/50 border rounded-lg p-4 mb-4">
             <StreamEditor
               onSave={handleAddStream}
               onCancel={() => setAddMode(null)}
@@ -111,7 +103,7 @@ export function DecisionPanel({
         )}
 
         {addMode === 'upfront' && (
-          <div className="stream-editor-container">
+          <div className="bg-muted/50 border rounded-lg p-4 mb-4">
             <StreamEditor
               defaultType="expense"
               defaultCategory="fixed"
@@ -122,10 +114,10 @@ export function DecisionPanel({
           </div>
         )}
 
-        {/* Existing streams with inline edit/delete */}
+        {/* Existing streams */}
         {decision.addStreams.map((stream) =>
           editingStreamId === stream.id ? (
-            <div key={stream.id} className="stream-editor-container">
+            <div key={stream.id} className="bg-muted/50 border rounded-lg p-4 mb-3">
               <StreamEditor
                 stream={stream}
                 onSave={handleUpdateStream}
@@ -133,19 +125,19 @@ export function DecisionPanel({
               />
             </div>
           ) : (
-            <div key={stream.id} className="stream-row">
-              <div className="stream-info">
-                <span className="stream-name">{stream.name}</span>
-                <span className="stream-details">
+            <div key={stream.id} className="flex items-center justify-between py-2.5 border-b border-muted last:border-b-0 group">
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium text-sm">{stream.name}</span>
+                <span className="text-[0.8125rem] text-muted-foreground">
                   ${stream.amount.toLocaleString()} · {FREQUENCY_LABELS[stream.frequency]}
                   {stream.endDate && ` · ends ${stream.endDate}`}
                 </span>
               </div>
-              <div className="stream-actions">
-                <button onClick={() => setEditingStreamId(stream.id)}>Edit</button>
-                <button className="danger" onClick={() => handleRemoveStream(stream.id)}>
+              <div className="flex gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                <Button variant="ghost" size="xs" onClick={() => setEditingStreamId(stream.id)}>Edit</Button>
+                <Button variant="ghost" size="xs" className="text-destructive hover:text-destructive" onClick={() => handleRemoveStream(stream.id)}>
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
           )
@@ -153,18 +145,18 @@ export function DecisionPanel({
 
         {/* Empty state */}
         {decision.addStreams.length === 0 && !addMode && (
-          <div className="decision-empty-streams">
-            <p>Add streams to model this decision's financial impact.</p>
-            <p className="field-hint">
+          <div className="text-center py-6 text-muted-foreground">
+            <p className="text-sm mb-1">Add streams to model this decision's financial impact.</p>
+            <p className="text-xs mb-4">
               Tip: Use "Upfront Cost" for one-time expenses like deposits or down payments.
             </p>
-            <div className="decision-action-buttons">
-              <button className="primary" onClick={() => setAddMode('stream')}>
+            <div className="flex gap-2 justify-center">
+              <Button size="sm" onClick={() => setAddMode('stream')}>
                 + Add Stream
-              </button>
-              <button onClick={() => setAddMode('upfront')}>
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setAddMode('upfront')}>
                 + Upfront Cost
-              </button>
+              </Button>
             </div>
           </div>
         )}
