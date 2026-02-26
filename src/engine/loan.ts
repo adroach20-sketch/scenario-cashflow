@@ -10,7 +10,7 @@ export function calculateMonthlyPayment(
   annualRatePercent: number,
   termMonths: number
 ): number {
-  if (termMonths <= 0 || principal <= 0) return 0;
+  if (termMonths <= 0 || principal <= 0 || annualRatePercent < 0) return 0;
 
   // 0% interest — simple division
   if (annualRatePercent === 0) {
@@ -21,5 +21,6 @@ export function calculateMonthlyPayment(
   const factor = Math.pow(1 + monthlyRate, termMonths);
   const payment = principal * (monthlyRate * factor) / (factor - 1);
 
+  if (!isFinite(payment)) return 0;
   return Math.round(payment * 100) / 100;
 }

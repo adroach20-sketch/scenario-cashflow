@@ -27,13 +27,13 @@ export function CalculatorInput({
   autoFocus,
   required,
 }: CalculatorInputProps) {
-  const [displayValue, setDisplayValue] = useState(value ? String(value) : '');
+  const [displayValue, setDisplayValue] = useState(value != null ? String(value) : '');
   const isFocused = useRef(false);
 
   // Sync from prop when not focused (external value changes)
   useEffect(() => {
     if (!isFocused.current) {
-      setDisplayValue(value ? String(value) : '');
+      setDisplayValue(value != null ? String(value) : '');
     }
   }, [value]);
 
@@ -42,7 +42,7 @@ export function CalculatorInput({
     if (!trimmed) {
       // Empty input — reset to 0 or keep previous
       if (required) {
-        setDisplayValue(value ? String(value) : '');
+        setDisplayValue(value != null ? String(value) : '');
       } else {
         onChange(0);
         setDisplayValue('');
@@ -56,7 +56,7 @@ export function CalculatorInput({
       setDisplayValue(String(result));
     } else {
       // Invalid expression — revert
-      setDisplayValue(value ? String(value) : '');
+      setDisplayValue(value != null ? String(value) : '');
     }
   }
 

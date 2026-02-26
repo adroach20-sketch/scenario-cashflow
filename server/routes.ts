@@ -132,7 +132,7 @@ function rowToDecision(
     removeStreamIds,
     modifyStreams: modifyStreams.map((m) => ({
       streamId: m.stream_id,
-      changes: JSON.parse(m.changes_json),
+      changes: safeJsonParse(m.changes_json, {}),
     })),
     ...(row.checking_balance_adjustment != null && {
       checkingBalanceAdjustment: row.checking_balance_adjustment,
@@ -348,7 +348,6 @@ export function registerRoutes(app: Express): void {
   // ── DELETE /api/scenarios/:id ────────────────────────────
   app.delete('/api/scenarios/:id', async (req: Request, res: Response) => {
     const pool = getPool();
-    await pool.query('DELETE FROM decisions WHERE baseline_id = $1', [req.params.id]);
     await pool.query('DELETE FROM scenarios WHERE id = $1', [req.params.id]);
     res.json({ ok: true });
   });
@@ -522,6 +521,6 @@ export function registerRoutes(app: Express): void {
   // ── Error handling middleware ────────────────────────────
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     console.error(`[API Error] ${req.method} ${req.path}:`, err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Internal server error' });
   });
 }

@@ -36,6 +36,7 @@ function App() {
   const [activePage, setActivePage] = useState<Page>('worksheet');
   const [scenarioList, setScenarioList] = useState<ScenarioSummary[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveRetrigger, setSaveRetrigger] = useState(0);
 
   const { baselineResult, decisionForecasts } = useForecaster(
     baseline,
@@ -44,6 +45,7 @@ function App() {
   );
 
   const saveInFlight = useRef(false);
+  const savePending = useRef(false);
 
   // Immediate save — bypasses the 500ms debounce.
   // Call before switching/creating/deleting scenarios to avoid data loss.
@@ -120,7 +122,10 @@ function App() {
   useEffect(() => {
     if (!isLoaded) return;
     const timer = setTimeout(async () => {
-      if (saveInFlight.current) return;
+      if (saveInFlight.current) {
+        savePending.current = true;
+        return;
+      }
       saveInFlight.current = true;
       try {
         if (baseline) {
@@ -136,10 +141,15 @@ function App() {
         setSaveError('Changes could not be saved. Check your connection and try again.');
       } finally {
         saveInFlight.current = false;
+        if (savePending.current) {
+          savePending.current = false;
+          // Re-trigger save for changes that arrived during the in-flight save
+          setSaveRetrigger((n) => n + 1);
+        }
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [baseline, decisions, isLoaded]);
+  }, [baseline, decisions, isLoaded, saveRetrigger]);
 
   const handleSetupChange = useCallback(
     (field: string, value: number | string) => {

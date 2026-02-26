@@ -287,10 +287,15 @@ function ImportModal({ open, scenarios, onImport, onClose }: ImportModalProps) {
       return;
     }
     setLoading(true);
-    apiStore.getDecisionsForScenario(selectedScenarioId).then((decs) => {
-      setAvailableDecisions(decs);
-      setLoading(false);
-    });
+    apiStore.getDecisionsForScenario(selectedScenarioId)
+      .then((decs) => {
+        setAvailableDecisions(decs);
+        setLoading(false);
+      })
+      .catch(() => {
+        setAvailableDecisions([]);
+        setLoading(false);
+      });
   }, [selectedScenarioId]);
 
   return (
